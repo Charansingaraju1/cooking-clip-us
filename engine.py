@@ -282,3 +282,18 @@ class StreamWatcher(threading.Thread):
                 self.stream_proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.stream_proc.kill()
+
+
+if __name__ == "__main__":
+    channels = os.environ.get("CHANNELS", "kaicenat,lacy").split(",")
+    print(f"[*] Starting background watchers for: {', '.join(channels)}")
+    watchers = [StreamWatcher(ch.strip()) for ch in channels if ch.strip()]
+    for w in watchers:
+        w.start()
+    try:
+        while any(w.is_alive() for w in watchers):
+            time.sleep(5)
+    except KeyboardInterrupt:
+        for w in watchers:
+            w.stop()
+
