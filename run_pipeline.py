@@ -125,18 +125,32 @@ def run_autonomous_slot(channel: str = "auto", source_url: str = None, hook: str
         return False
     print("[✅ INTEGRITY CONFIRMED] 1080x1920, 9:16 aspect ratio, valid audio, ready for broadcast.")
 
-    # Step 4: Autonomous Dual-Platform Upload (YouTube Shorts & Instagram Reels)
+    # Step 4: Autonomous Dual-Platform Upload with Expanded High-Viral Hashtags
     title = f"{channel.upper()} INSANE MOMENT! 💥"
-    print(f"[*] Publishing to YouTube Shorts...")
+    ch = channel.lower()
+    if "kai" in ch:
+        viral_tags = ["Kai Cenat", "Kai Cenat Clips", "AMP", "GTA 6", "Grand Theft Auto VI", "GTA 6 Gameplay", "Twitch Highlights", "Streamer Moments", "Gaming", "Shorts", "Viral Clips", "Cooked Clips"]
+        viral_hashtags = "#kaicenat #kaicenatclips #amp #gta6 #grandtheftauto6 #gta6gameplay #twitchmoments #streamerhighlights #gamingmemes #gamingreels #viralreels #fyp #explorepage #cookedclips"
+    elif "lacy" in ch:
+        viral_tags = ["Lacy", "Lacy Stream", "FaZe Lacy", "GTA 6", "Grand Theft Auto VI", "GTA 6 Gameplay", "Streamer Highlights", "Twitch Moments", "Gaming", "Shorts", "Viral Clips", "Cooked Clips"]
+        viral_hashtags = "#lacy #lacystream #lacymoments #faze #fazelacy #gta6 #grandtheftauto6 #gta6gameplay #streamer #streamerclips #twitchfails #gamingreels #viralreels #fyp #explorepage #cookedclips"
+    else:
+        viral_tags = ["Gaming", "Twitch", "Streamer Moments", "GTA 6", "Shorts", "Viral Clips"]
+        viral_hashtags = "#gaming #gamingclips #streamer #streamerclips #twitch #twitchmoments #gta6 #grandtheftauto6 #viral #viralreels #fyp #explorepage #cookedclips"
+
+    yt_description = f"{hook or title}\n\n🔥 Subscribe to @Cooked_Clips_US for daily stream highlights!\n\n{viral_hashtags}"
+    ig_caption = f"{hook or title}\n.\n.\nRate this moment from 1-10 below! 👇\n.\n.\n{viral_hashtags}"
+
+    print(f"[*] Publishing to YouTube Shorts with viral tags...")
     yt_result = youtube_publisher.upload_short(
         video_path=str(clip_to_upload),
         title=title,
-        description=f"{hook or title}\n\n#Shorts #Gaming #{channel.upper()} #ViralClips",
+        description=yt_description,
+        tags=viral_tags,
         privacy_status="public"
     )
 
-    print(f"[*] Publishing to Instagram Reels...")
-    ig_caption = f"{hook or title}\n.\n.\n#reels #viral #gaming #{channel.lower()} #shorts"
+    print(f"[*] Publishing to Instagram Reels with viral hashtags...")
     ig_result = instagram_publisher.upload_reel(str(clip_to_upload), ig_caption)
 
     # Step 5: Telegram Commander Alert
