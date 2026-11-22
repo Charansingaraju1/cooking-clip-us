@@ -144,8 +144,10 @@ def run_autonomous_slot(channel: str = "auto", source_url: str = None, hook: str
         yt_url = yt_result.get("url", "N/A") if yt_result else "N/A"
         ig_url = ig_result.get("url", "N/A") if ig_result else "N/A"
         telegram_commander.send_telegram_alert(
+            streamer=channel,
             title=title,
-            youtube_url=f"YouTube: {yt_url}\nInstagram: {ig_url}"
+            yt_url=yt_url,
+            ig_url=ig_url
         )
         print(f"\n[🚀 SLOT COMPLETED SUCCESSFULLY] YouTube: {yt_url} | Instagram: {ig_url}")
         return True
