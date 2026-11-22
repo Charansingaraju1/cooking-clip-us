@@ -126,9 +126,13 @@ def render_vertical_clip(
     ] + filter_complex + audio_filters + [
         "-c:v", "libx264",
         "-preset", "veryfast",
-        "-crf", "20",
+        "-crf", "22",
+        "-r", "30",
+        "-pix_fmt", "yuv420p",
         "-c:a", "aac",
-        "-b:a", "192k",
+        "-b:a", "128k",
+        "-ar", "48000",
+        "-movflags", "+faststart",
         str(output_video)
     ]
 
