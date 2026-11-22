@@ -128,8 +128,7 @@ def dispatch_command(cmd: str, chat_id: str) -> None:
             "• <code>/clips</code> - View all staged 1080x1920 video files\n"
             "• <code>/upload</code> - Immediately publish the next clip\n"
             "• <code>/kai</code> - Cut a fresh Kai Cenat viral highlight\n"
-            "• <code>/lacy</code> - Cut a fresh Lacy viral highlight\n"
-            "• <code>/speed</code> - Cut a fresh IShowSpeed viral highlight"
+            "• <code>/lacy</code> - Cut a fresh Lacy viral highlight"
         )
         send_message(help_msg, chat_id)
     elif c == "/dash":
@@ -141,9 +140,11 @@ def dispatch_command(cmd: str, chat_id: str) -> None:
     elif c == "/upload":
         res = handle_upload_command()
         send_message(res, chat_id)
-    elif c in ("/kai", "/lacy", "/speed"):
+    elif c in ("/kai", "/lacy"):
         streamer = c.replace("/", "").upper()
         send_message(f"🎬 Ingesting latest VOD / stream for <b>{streamer}</b>... Pipeline active.", chat_id)
+    elif c == "/speed":
+        send_message("ℹ️ IShowSpeed clipping is currently paused per Boss's orders. Focus is 100% on Kai Cenat & Lacy.", chat_id)
     else:
         # Conversational fallback
         send_message(f"🤖 <b>Commander received:</b> \"{cmd}\"\nType <code>/dash</code> for live stats or <code>/help</code> for commands.", chat_id)
