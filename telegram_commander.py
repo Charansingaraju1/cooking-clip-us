@@ -30,8 +30,11 @@ try:
 except ImportError:
     pass
 
-BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "REDACTED")
-ALLOWED_CHAT_ID = 6236827164
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+try:
+    ALLOWED_CHAT_ID = int(os.environ["TELEGRAM_CHAT_ID"])
+except (KeyError, ValueError):
+    ALLOWED_CHAT_ID = None
 BASE_DIR = pathlib.Path(__file__).parent.resolve()
 READY_DIR = BASE_DIR / "clips" / "ready"
 TEMP_DIR = BASE_DIR / "temp"
@@ -70,6 +73,9 @@ def get_whisper():
 # Telegram Message & Voice Senders
 # ==========================================
 def send_message(text: str, chat_id: Optional[int] = None, parse_mode: str = "HTML") -> bool:
+    if not BOT_TOKEN:
+        print("[!] TELEGRAM_BOT_TOKEN is not set")
+        return False
     target_chat = chat_id or ALLOWED_CHAT_ID
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
@@ -89,6 +95,9 @@ def send_message(text: str, chat_id: Optional[int] = None, parse_mode: str = "HT
 
 
 def send_voice_audio(chat_id: int, spoken_text: str, caption: str = "🎙️ <b>Cooked Clips Voice Assistant</b>"):
+    if not BOT_TOKEN:
+        print("[!] TELEGRAM_BOT_TOKEN is not set")
+        return False
     voice_file = str(TEMP_DIR / "bot_voice_reply.ogg")
 
     async def make_speech():
@@ -123,6 +132,9 @@ def send_voice_audio(chat_id: int, spoken_text: str, caption: str = "🎙️ <b>
 
 
 def download_telegram_file(file_id: str, save_path: str) -> bool:
+    if not BOT_TOKEN:
+        print("[!] TELEGRAM_BOT_TOKEN is not set")
+        return False
     try:
         info_url = f"https://api.telegram.org/bot{BOT_TOKEN}/getFile?file_id={file_id}"
         req = urllib.request.Request(info_url, headers={"User-Agent": "Mozilla/5.0"})
@@ -450,6 +462,12 @@ def dispatch_command(cmd: str, chat_id: int):
 # Main Long-Polling Daemon Loop
 # ==========================================
 def run_bot_polling():
+    if not BOT_TOKEN:
+        print("[!] Telegram polling disabled: TELEGRAM_BOT_TOKEN is not set")
+        return
+    if ALLOWED_CHAT_ID is None:
+        print("[!] Telegram polling disabled: TELEGRAM_CHAT_ID is not set")
+        return
     print(f"[*] Cooked Clips US Autonomous AI Daemon v5.0 Active for @Cookedclip_bot...")
     sys.stdout.flush()
 
