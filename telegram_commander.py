@@ -321,6 +321,8 @@ def dispatch_command(cmd: str, chat_id: int):
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             "• <code>/upload</code> — Instantly publish next clip to YouTube & Instagram\n"
             "• <code>/dash</code> — Real-time metrics for YouTube & Instagram\n"
+            "• <code>/analyze</code> — Deep AI Channel Growth & Monetization Audit\n"
+            "• <code>/hooks</code> — 21 Proven YouTube Shorts Viral Hook Frameworks\n"
             "• <code>/schedule</code> — 3-Slot US & IST schedule with countdowns\n"
             "• <code>/rewards</code> — Direct Content Rewards campaign submission links\n"
             "• <code>/clips</code> — View all staged 1080x1920 video clips on disk\n"
@@ -413,6 +415,27 @@ def dispatch_command(cmd: str, chat_id: int):
             "• <b>Voice STT/TTS:</b> Whisper STT + Edge-TTS GuyNeural Active"
         )
         send_message(status_msg, chat_id)
+
+    elif c in ("/analyze", "analyze", "/audit", "audit", "/monetize", "monetize", "/growth", "growth"):
+        send_message("🔍 <i>Channel Growth & Monetization Analyst deployed... Auditing algorithms & metrics, Boss!</i>", chat_id)
+        try:
+            import channel_growth_agent
+            rep = channel_growth_agent.analyze_channel()
+            summary = channel_growth_agent.format_telegram_summary(rep)
+            send_message(summary, chat_id)
+        except Exception as e:
+            send_message(f"❌ <b>Analysis error:</b> <code>{e}</code>", chat_id)
+
+    elif c in ("/hooks", "hooks", "/ideas", "ideas", "/idea", "idea"):
+        try:
+            import channel_growth_agent
+            hooks = channel_growth_agent.generate_viral_hooks("Kai Cenat")
+            lines = ["💡 <b>VIRAL HOOK FRAMEWORKS (21 YOUTUBE SHORTS FORMULAS):</b>\n"]
+            for i, h in enumerate(hooks, 1):
+                lines.append(f"<b>{i}. {h['formula']}</b>\n• <b>Hook:</b> \"{h['hook_text']}\"\n• <b>Audio Cue:</b> <i>{h['audio_cue']}</i>\n• <b>Retention Trick:</b> <i>{h['retention_trick']}</i>\n")
+            send_message("\n".join(lines), chat_id)
+        except Exception as e:
+            send_message(f"❌ <b>Hook generator error:</b> <code>{e}</code>", chat_id)
 
     elif c in ("/upload", "upload", "/publish", "upload now"):
         res = handle_upload_command()
