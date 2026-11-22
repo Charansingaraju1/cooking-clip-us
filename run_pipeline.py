@@ -20,7 +20,19 @@ import instagram_publisher
 import telegram_commander
 
 
-def run_autonomous_slot(channel: str = "kaicenat", source_url: str = None, hook: str = None):
+def resolve_auto_streamer():
+    """Auto-distributes daily uploads: Morning=Kai, Lunch=Lacy, Prime=Kai."""
+    hour = datetime.datetime.utcnow().hour
+    if 11 <= hour <= 15:
+        return "kaicenat"
+    elif 16 <= hour <= 20:
+        return "lacy"
+    return "kaicenat"
+
+
+def run_autonomous_slot(channel: str = "auto", source_url: str = None, hook: str = None):
+    if not channel or channel == "auto":
+        channel = resolve_auto_streamer()
     print(f"\n========================================================")
     print(f"🎬 MASTER PIPELINE EXECUTING FOR: {channel.upper()}")
     print(f"Time: {datetime.datetime.utcnow().isoformat()}Z")
@@ -137,7 +149,7 @@ def run_autonomous_slot(channel: str = "kaicenat", source_url: str = None, hook:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Cooking Clip US Autonomous Pipeline")
-    parser.add_argument("--channel", default="kaicenat", help="Target streamer channel")
+    parser.add_argument("--channel", default="auto", help="Target streamer channel (kaicenat, lacy, ishowspeed, or auto)")
     parser.add_argument("--url", default=None, help="Direct video URL")
     parser.add_argument("--hook", default=None, help="Hook text overlay")
     args = parser.parse_args()

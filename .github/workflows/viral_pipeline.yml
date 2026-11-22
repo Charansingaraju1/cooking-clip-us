@@ -57,7 +57,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          CHANNEL="${{ github.event.inputs.channel || 'kaicenat' }}"
+          CHANNEL="${{ github.event.inputs.channel || 'auto' }}"
           URL="${{ github.event.inputs.url || '' }}"
           HOOK="${{ github.event.inputs.hook || '' }}"
           python run_pipeline.py --channel "$CHANNEL" --url "$URL" --hook "$HOOK"
