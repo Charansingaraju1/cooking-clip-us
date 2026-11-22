@@ -14,6 +14,7 @@ import json
 import os
 import pathlib
 import sys
+import threading
 import time
 import urllib.request
 import urllib.parse
@@ -31,6 +32,62 @@ REWARD_CAMPAIGNS = {
     "KAICENAT": "https://contentrewards.com/c/campaigns/1d2bcb00-c904-415f-aa82-f95b96baad86",
     "LACY": "https://contentrewards.com/c/campaigns/a5c63fad-cd53-4b81-9305-4a2d1696872a",
 }
+
+# Scheduled Publishing Slots in UTC (13:00 UTC = 18:30 IST / 8:00 AM EST)
+SLOT_SCHEDULE = [
+    {"utc_h": 13, "utc_m": 0, "streamer": "Kai Cenat", "ist_str": "06:30 PM IST"},
+    {"utc_h": 17, "utc_m": 0, "streamer": "Lacy", "ist_str": "10:30 PM IST"},
+    {"utc_h": 0, "utc_m": 0, "streamer": "Kai Cenat", "ist_str": "05:30 AM IST"},
+]
+
+
+def reminder_scheduler_thread():
+    """Background monitor firing 10-minute and 5-minute pre-publish warnings."""
+    sent_alerts = set()
+    print("[*] Pre-Publish Countdown Monitor (10-min & 5-min reminders) active...")
+    while True:
+        try:
+            now = datetime.datetime.utcnow()
+            today_str = now.strftime("%Y-%m-%d")
+            for slot in SLOT_SCHEDULE:
+                target_dt = now.replace(hour=slot["utc_h"], minute=slot["utc_m"], second=0, microsecond=0)
+                diff_sec = (target_dt - now).total_seconds()
+
+                # 10-minute reminder (between 540s and 600s)
+                key_10 = f"{today_str}_{slot['utc_h']}_10"
+                if 540 <= diff_sec <= 600 and key_10 not in sent_alerts:
+                    sent_alerts.add(key_10)
+                    streamer = slot["streamer"]
+                    campaign = REWARD_CAMPAIGNS.get("LACY" if "LACY" in streamer.upper() else "KAI")
+                    msg = (
+                        f"⏰ <b>10-MINUTE HEADS-UP!</b> 🎬\n\n"
+                        f"A new <b>{streamer}</b> GTA 6 reel & short will be published in <b>10 minutes</b> at <b>{slot['ist_str']}</b>!\n\n"
+                        f"Get your Content Rewards portal ready to submit your links within the 30-minute window:\n"
+                        f"👉 <b>Portal:</b> {campaign}"
+                    )
+                    send_message(msg)
+                    print(f"[ALERT] Dispatched 10-min reminder for {streamer} at {slot['ist_str']}.")
+
+                # 5-minute reminder (between 240s and 300s)
+                key_5 = f"{today_str}_{slot['utc_h']}_5"
+                if 240 <= diff_sec <= 300 and key_5 not in sent_alerts:
+                    sent_alerts.add(key_5)
+                    streamer = slot["streamer"]
+                    campaign = REWARD_CAMPAIGNS.get("LACY" if "LACY" in streamer.upper() else "KAI")
+                    msg = (
+                        f"🚨 <b>5-MINUTE COUNTDOWN!</b> 🎬\n\n"
+                        f"Publishing in <b>5 minutes</b> ({slot['ist_str']})!\n"
+                        f"<b>Streamer:</b> {streamer}\n\n"
+                        f"Live YouTube and Instagram links will arrive here the instant it goes live.\n"
+                        f"👉 <b>Portal:</b> {campaign}"
+                    )
+                    send_message(msg)
+                    print(f"[ALERT] Dispatched 5-min reminder for {streamer} at {slot['ist_str']}.")
+
+            time.sleep(20)
+        except Exception as e:
+            time.sleep(30)
+
 
 
 def format_reward_alert(streamer: str, title: str, yt_url: str, ig_url: str) -> str:
@@ -194,6 +251,10 @@ def dispatch_command(cmd: str, chat_id: str) -> None:
 def run_bot_polling(single_run: bool = False):
     """Long-polling daemon for real-time Telegram response."""
     print(f"[*] Telegram Commander Daemon started for Bot @Cookedclip_bot...")
+    
+    # Start background 10-min and 5-min pre-publish countdown monitor
+    threading.Thread(target=reminder_scheduler_thread, daemon=True).start()
+
     offset = None
     while True:
         try:
