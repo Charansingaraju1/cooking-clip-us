@@ -45,23 +45,37 @@ def run_autonomous_slot(channel: str = "auto", source_url: str = None, hook: str
     # Step 1: Ingestion
     raw_video = out_dir / f"raw_{channel}_{session_id}.mp4"
     if not source_url:
-        print(f"[*] Discovering latest VOD / stream for {channel}...")
-        source_url = f"https://twitch.tv/{channel}"
+        print(f"[*] Discovering latest high-intensity stream / VOD for {channel}...")
+        # Prioritize freshest GTA 6 stream replay / live VOD
+        source_url = f"ytsearch1:{channel} gta 6 stream"
 
-    print(f"[*] Downloading source stream: {source_url}...")
+    print(f"[*] Acquiring source stream: {source_url}...")
     import subprocess
     cmd_dl = [
         sys.executable, "-m", "yt_dlp",
         source_url,
         "-o", str(raw_video),
-        "-f", "best[ext=mp4]/best",
-        "--max-filesize", "150M",
+        "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "--download-sections", "*05:00-05:40",
+        "--force-keyframes-at-cuts",
         "--no-playlist"
     ]
-    subprocess.run(cmd_dl)
+    res_dl = subprocess.run(cmd_dl)
 
     if not raw_video.exists() or raw_video.stat().st_size < 1000:
-        print(f"[!] Source acquisition failed or stream offline. Falling back to queued clip if available.")
+        print(f"[*] Targeted section failed, attempting direct download...")
+        cmd_dl_fallback = [
+            sys.executable, "-m", "yt_dlp",
+            source_url,
+            "-o", str(raw_video),
+            "-f", "best[ext=mp4]/best",
+            "--max-filesize", "80M",
+            "--no-playlist"
+        ]
+        subprocess.run(cmd_dl_fallback)
+
+    if not raw_video.exists() or raw_video.stat().st_size < 1000:
+        print(f"[!] Source acquisition failed. Falling back to queued clip if available.")
         ready_clips = list(pathlib.Path("clips/ready").glob("*.mp4"))
         if ready_clips:
             clip_to_upload = sorted(ready_clips, key=lambda x: os.path.getmtime(x), reverse=True)[0]
