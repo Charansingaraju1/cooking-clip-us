@@ -17,6 +17,17 @@ app = FastAPI(title="Cooking Clip US Engine")
 
 ACTIVE_WATCHERS = {}
 
+@app.on_event("startup")
+def on_startup():
+    print("[*] Starting 24/7 background Telegram Commander polling thread in cloud...")
+    try:
+        import telegram_commander
+        threading.Thread(target=telegram_commander.run_bot_polling, daemon=True).start()
+        print("[✅] Telegram Commander 24/7 cloud daemon active.")
+    except Exception as e:
+        print(f"[!] Could not start Telegram daemon: {e}")
+
+
 HTML_DASHBOARD = """
 <!DOCTYPE html>
 <html lang="en">
