@@ -16,6 +16,7 @@ import pathlib
 import sys
 import editor
 import youtube_publisher
+import instagram_publisher
 import telegram_commander
 
 
@@ -98,25 +99,39 @@ def run_autonomous_slot(channel: str = "kaicenat", source_url: str = None, hook:
         return False
     print("[✅ INTEGRITY CONFIRMED] 1080x1920, 9:16 aspect ratio, valid audio, ready for broadcast.")
 
-    # Step 4: Autonomous YouTube Shorts Upload
+    # Step 4: Autonomous Dual-Platform Upload (YouTube Shorts & Instagram Reels)
     title = f"{channel.upper()} INSANE MOMENT! 💥"
-    pub_result = youtube_publisher.upload_short(
+    print(f"[*] Publishing to YouTube Shorts...")
+    yt_result = youtube_publisher.upload_short(
         video_path=str(clip_to_upload),
         title=title,
         description=f"{hook or title}\n\n#Shorts #Gaming #{channel.upper()} #ViralClips",
         privacy_status="public"
     )
 
+    print(f"[*] Publishing to Instagram Reels...")
+    ig_caption = f"{hook or title}\n.\n.\n#reels #viral #gaming #{channel.lower()} #shorts"
+    ig_result = None
+    if source_url and source_url.endswith(".mp4"):
+        ig_result = instagram_publisher.upload_reel(source_url, ig_caption)
+    elif os.environ.get("PUBLIC_VIDEO_BASE_URL"):
+        pub_url = f"{os.environ.get('PUBLIC_VIDEO_BASE_URL').rstrip('/')}/{clip_to_upload.name}"
+        ig_result = instagram_publisher.upload_reel(pub_url, ig_caption)
+    else:
+        print("[*] Local video ready. For direct Instagram Graph API push, set PUBLIC_VIDEO_BASE_URL.")
+
     # Step 5: Telegram Commander Alert
-    if pub_result and pub_result.get("url"):
+    if (yt_result and yt_result.get("url")) or (ig_result and ig_result.get("url")):
+        yt_url = yt_result.get("url", "N/A") if yt_result else "N/A"
+        ig_url = ig_result.get("url", "N/A") if ig_result else "N/A"
         telegram_commander.send_telegram_alert(
             title=title,
-            youtube_url=pub_result["url"]
+            youtube_url=f"YouTube: {yt_url}\nInstagram: {ig_url}"
         )
-        print(f"\n[🚀 SLOT COMPLETED SUCCESSFULLY] Published: {pub_result['url']}")
+        print(f"\n[🚀 SLOT COMPLETED SUCCESSFULLY] YouTube: {yt_url} | Instagram: {ig_url}")
         return True
     else:
-        print("[!] Video processed, awaiting manual or secondary upload triggers.")
+        print("[!] Video rendered and ready locally.")
         return False
 
 
