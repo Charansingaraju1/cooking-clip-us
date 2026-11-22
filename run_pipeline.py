@@ -123,14 +123,7 @@ def run_autonomous_slot(channel: str = "auto", source_url: str = None, hook: str
 
     print(f"[*] Publishing to Instagram Reels...")
     ig_caption = f"{hook or title}\n.\n.\n#reels #viral #gaming #{channel.lower()} #shorts"
-    ig_result = None
-    if source_url and source_url.endswith(".mp4"):
-        ig_result = instagram_publisher.upload_reel(source_url, ig_caption)
-    elif os.environ.get("PUBLIC_VIDEO_BASE_URL"):
-        pub_url = f"{os.environ.get('PUBLIC_VIDEO_BASE_URL').rstrip('/')}/{clip_to_upload.name}"
-        ig_result = instagram_publisher.upload_reel(pub_url, ig_caption)
-    else:
-        print("[*] Local video ready. For direct Instagram Graph API push, set PUBLIC_VIDEO_BASE_URL.")
+    ig_result = instagram_publisher.upload_reel(str(clip_to_upload), ig_caption)
 
     # Step 5: Telegram Commander Alert
     if (yt_result and yt_result.get("url")) or (ig_result and ig_result.get("url")):
