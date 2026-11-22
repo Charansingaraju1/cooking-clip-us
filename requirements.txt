@@ -5,3 +5,7 @@ streamlink>=6.6.0
 faster-whisper>=1.0.0
 python-multipart>=0.0.9
 requests>=2.31.0
+google-api-python-client>=2.120.0
+google-auth>=2.28.0
+google-auth-oauthlib>=1.2.0
+edge-tts>=6.1.10
