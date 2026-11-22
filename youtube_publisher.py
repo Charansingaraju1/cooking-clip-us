@@ -27,7 +27,7 @@ def get_authenticated_service():
         return None
 
     token_json_str = os.environ.get("YOUTUBE_TOKEN_JSON")
-    client_secret_str = os.environ.get("YOUTUBE_CLIENT_SECRET_JSON")
+    client_secret_str = os.environ.get("YOUTUBE_CLIENT_JSON") or os.environ.get("YOUTUBE_CLIENT_SECRET_JSON")
 
     if not token_json_str and os.path.exists("token.json"):
         with open("token.json", "r") as f:
