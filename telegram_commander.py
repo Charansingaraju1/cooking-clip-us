@@ -25,6 +25,47 @@ CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "6236827164")
 BASE_DIR = pathlib.Path(__file__).parent.resolve()
 READY_DIR = BASE_DIR / "clips" / "ready"
 
+# Verified Content Rewards Campaign Links
+REWARD_CAMPAIGNS = {
+    "KAI": "https://contentrewards.com/c/campaigns/1d2bcb00-c904-415f-aa82-f95b96baad86",
+    "KAICENAT": "https://contentrewards.com/c/campaigns/1d2bcb00-c904-415f-aa82-f95b96baad86",
+    "LACY": "https://contentrewards.com/c/campaigns/a5c63fad-cd53-4b81-9305-4a2d1696872a",
+}
+
+
+def format_reward_alert(streamer: str, title: str, yt_url: str, ig_url: str) -> str:
+    s_upper = streamer.upper()
+    is_lacy = "LACY" in s_upper
+    campaign_url = REWARD_CAMPAIGNS["LACY"] if is_lacy else REWARD_CAMPAIGNS["KAI"]
+    creator_tag = "LACY 🎯" if is_lacy else "KAI CENAT 🔥"
+
+    return (
+        f"🎬 <b>STREAM CLIP: {creator_tag}</b>\n\n"
+        f"🚀 <b>NEW SHORT & REEL PUBLISHED!</b>\n"
+        f"📌 <b>Title:</b> {title}\n\n"
+        f"🔴 <b>YouTube Short:</b> {yt_url}\n"
+        f"📸 <b>Instagram Reel:</b> {ig_url}\n\n"
+        f"🚨 <b>URGENT 30-MINUTE DEADLINE!</b>\n"
+        f"Copy both links above immediately and submit to your Content Reward campaign within 30 minutes:\n"
+        f"👉 <b>Portal:</b> {campaign_url}"
+    )
+
+
+def send_telegram_alert(
+    streamer: str = "Kai Cenat",
+    title: str = "NEW GTA 6 VIRAL CLIP",
+    yt_url: str = "https://youtube.com/@Cooked_Clips_US",
+    ig_url: str = "https://instagram.com/cooked_clips_us",
+    youtube_url: Optional[str] = None,
+    chat_id: Optional[str] = None
+) -> bool:
+    """Dispatches instant notification with streamer identification and 30-minute reward deadline."""
+    if youtube_url and not yt_url:
+        yt_url = youtube_url
+    msg = format_reward_alert(streamer, title, yt_url, ig_url)
+    return send_message(msg, chat_id=chat_id)
+
+
 
 def send_message(text: str, chat_id: Optional[str] = None, parse_mode: str = "HTML") -> bool:
     target_chat = chat_id or CHAT_ID
