@@ -64,45 +64,41 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     return output_path
 
 
-def build_stack_filters(channel: str = "", hook_text: str = "", ass_path: str = None):
+def build_stack_filters(channel: str = "", hook_text: str = "", ass_path: str = None, has_bgm: bool = False):
     ch = channel.lower() if channel else ""
-    # Top 35% = 672px, Bottom 65% = 1248px (Total = 1920px)
+    # 70% Extreme Reaction Facecam (1100px) / 30% Gameplay (820px) = 1920px total
     if ch in ("speed", "ishowspeed"):
-        cam = "[0:v]crop=388:220:0:460,scale=1080:672:flags=lanczos[cam]"
-        game = "[0:v]crop=1080:1080:420:0,scale=1080:1248:flags=lanczos[game]"
+        cam = "[0:v]crop=388:220:0:460,scale=1080:1100:flags=lanczos[cam]"
+        game = "[0:v]crop=1080:820:420:0,scale=1080:820:flags=lanczos[game]"
     elif ch in ("kai", "kaicenat"):
-        cam = "[0:v]crop=480:360:1440:720,scale=1080:672:flags=lanczos[cam]"
-        game = "[0:v]crop=1080:1080:0:0,scale=1080:1248:flags=lanczos[game]"
+        cam = "[0:v]crop=480:360:1440:720,scale=1080:1100:flags=lanczos[cam]"
+        game = "[0:v]crop=1080:820:0:0,scale=1080:820:flags=lanczos[game]"
     elif ch in ("lacy",):
-        cam = "[0:v]crop=494:278:0:0,scale=1080:672:flags=lanczos[cam]"
-        game = "[0:v]crop=1080:1080:550:0,scale=1080:1248:flags=lanczos[game]"
+        cam = "[0:v]crop=494:278:0:0,scale=1080:1100:flags=lanczos[cam]"
+        game = "[0:v]crop=1080:820:550:0,scale=1080:820:flags=lanczos[game]"
     else:
-        # Generic: top 35% scaled center crop, bottom 65% gameplay
-        cam = "[0:v]crop=1280:720:0:0,scale=1080:672:flags=lanczos[cam]"
-        game = "[0:v]crop=1080:1080:420:0,scale=1080:1248:flags=lanczos[game]"
+        cam = "[0:v]crop=1280:720:0:0,scale=1080:1100:flags=lanczos[cam]"
+        game = "[0:v]crop=1080:820:420:0,scale=1080:820:flags=lanczos[game]"
 
     chain = f"{cam};{game};[cam][game]vstack=inputs=2[vstacked]"
     curr_v = "[vstacked]"
 
-    # 3-Second Curiosity Hook Overlay
-    if hook_text:
-        safe_hook = hook_text.replace("'", "").replace(":", "\\:").upper()
-        chain += f";{curr_v}drawtext=text='{safe_hook}':fontsize=52:fontcolor=white:box=1:boxcolor=black@0.85:boxborderw=12:x=(w-text_w)/2:y=120:enable='between(t,0,3)'[vhook]"
-        curr_v = "[vhook]"
-
     # ASS Subtitles Filter
     if ass_path and os.path.exists(ass_path):
-        esc_ass = str(pathlib.Path(ass_path).resolve()).replace("\\", "/").replace(":", "\\:")
-        chain += f";{curr_v}ass='{esc_ass}'[vout]"
-        curr_v = "[vout]"
+        ass_name = pathlib.Path(ass_path).name
+        chain += f";{curr_v}ass={ass_name}[vout]"
     else:
         chain += f";{curr_v}null[vout]"
 
-    filter_complex = ["-filter_complex", chain, "-map", "[vout]", "-map", "0:a?"]
-    # Broadcast standard -14 LUFS loudness normalization
-    audio_filters = ["-af", "loudnorm=I=-14:LRA=7:tp=-1.5"]
+    # Audio Mixing: Layer viral BGM if present
+    if has_bgm:
+        chain += ";[1:a]aloop=loop=-1:size=2e+09,volume=0.20[bgm];[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=2,loudnorm=I=-14:LRA=7:tp=-1.5[aout]"
+        audio_map = ["-map", "[aout]"]
+    else:
+        audio_map = ["-map", "0:a?", "-af", "loudnorm=I=-14:LRA=7:tp=-1.5"]
 
-    return filter_complex, audio_filters
+    filter_complex = ["-filter_complex", chain, "-map", "[vout]"] + audio_map
+    return filter_complex
 
 
 def render_vertical_clip(
@@ -114,16 +110,49 @@ def render_vertical_clip(
     hook_text: str = "",
     ass_path: str = None
 ) -> bool:
-    """Renders high-quality 1080x1920 vertical video with -14 LUFS audio normalization."""
-    pathlib.Path(output_video).parent.mkdir(parents=True, exist_ok=True)
-    filter_complex, audio_filters = build_stack_filters(channel, hook_text, ass_path)
+    """Renders high-impact 70/30 reaction vertical video with ducked viral BGM."""
+    out_p = pathlib.Path(output_video).resolve()
+    out_p.parent.mkdir(parents=True, exist_ok=True)
+    working_dir = out_p.parent
+
+    # Detect viral BGM
+    bgm_candidates = [
+        pathlib.Path("assets/viral_bgm.mp3").resolve(),
+        pathlib.Path("output/viral_bgm.mp3").resolve(),
+        pathlib.Path(__file__).parent / "assets" / "viral_bgm.mp3"
+    ]
+    bgm_file = next((p for p in bgm_candidates if p.exists()), None)
+    has_bgm = bgm_file is not None
+
+    filter_complex = build_stack_filters(channel, hook_text, ass_path, has_bgm=has_bgm)
 
     cmd = [
         "ffmpeg", "-y",
         "-ss", f"{start_sec:.2f}",
         "-t", f"{duration:.2f}",
         "-i", str(input_video),
-    ] + filter_complex + audio_filters + [
+    ]
+    if has_bgm:
+        cmd += ["-i", str(bgm_file)]
+
+    cmd += filter_complex + [
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", "20",
+        "-r", "30",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-ar", "48000",
+        "-movflags", "+faststart",
+        str(out_p)
+    ]
+
+    res = subprocess.run(cmd, cwd=str(working_dir), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    if res.returncode != 0:
+        print(f"[!] FFmpeg error: {res.stderr[-400:]}")
+        return False
+    return True + [
         "-c:v", "libx264",
         "-preset", "veryfast",
         "-crf", "22",
