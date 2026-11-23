@@ -115,6 +115,105 @@ def upload_reel_meta_api(
         return None
 
 
+def upload_reel_meta_resumable(
+    video_path: str,
+    caption: str,
+    access_token: Optional[str] = None,
+    account_id: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """Uploads local video directly to Instagram Reels via Meta Graph API resumable upload."""
+    import requests
+    import subprocess
+
+    token = access_token or os.environ.get("INSTAGRAM_ACCESS_TOKEN")
+    ig_id = account_id or os.environ.get("INSTAGRAM_ACCOUNT_ID")
+
+    if not token or not ig_id:
+        return None
+
+    # Pre-process video with ffmpeg for Instagram specifications if needed
+    proc_path = video_path
+    if os.path.exists(video_path):
+        norm_path = video_path.replace(".mp4", "_ig_norm.mp4")
+        norm_cmd = [
+            "ffmpeg", "-y", "-i", video_path,
+            "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,format=yuv420p,fps=30",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "128k", "-ar", "48000",
+            "-movflags", "+faststart", norm_path
+        ]
+        try:
+            p = subprocess.run(norm_cmd, capture_output=True, text=True)
+            if p.returncode == 0 and os.path.exists(norm_path):
+                proc_path = norm_path
+        except Exception:
+            pass
+
+    file_size = os.path.getsize(proc_path)
+    api_base = "https://graph.facebook.com/v20.0"
+
+    try:
+        # Step 1: Init container
+        init_res = requests.post(f"{api_base}/{ig_id}/media", data={
+            "access_token": token,
+            "upload_type": "resumable",
+            "media_type": "REELS",
+            "caption": caption,
+            "share_to_feed": "true"
+        }).json()
+
+        container_id = init_res.get("id")
+        upload_uri = init_res.get("uri") or f"https://rupload.facebook.com/ig-api-upload/v20.0/{container_id}"
+
+        # Step 2: Upload binary
+        with open(proc_path, "rb") as f:
+            up_res = requests.post(
+                upload_uri,
+                headers={
+                    "Authorization": f"OAuth {token}",
+                    "offset": "0",
+                    "file_size": str(file_size),
+                    "Content-Type": "application/octet-stream"
+                },
+                data=f
+            )
+
+        # Clean up temporary normalized file
+        if proc_path != video_path and os.path.exists(proc_path):
+            try:
+                os.remove(proc_path)
+            except Exception:
+                pass
+
+        if up_res.status_code != 200:
+            print(f"[!] Binary upload failed: {up_res.text}")
+            return None
+
+        # Step 3: Poll status
+        for _ in range(40):
+            time.sleep(5)
+            st_data = requests.get(f"{api_base}/{container_id}", params={"access_token": token, "fields": "status_code"}).json()
+            if st_data.get("status_code") == "FINISHED":
+                break
+            elif st_data.get("status_code") == "ERROR":
+                print(f"[!] Reel processing error: {st_data}")
+                return None
+
+        # Step 4: Publish
+        pub_res = requests.post(f"{api_base}/{ig_id}/media_publish", data={"access_token": token, "creation_id": container_id}).json()
+        post_id = pub_res.get("id")
+        if not post_id:
+            return None
+
+        info = requests.get(f"{api_base}/{post_id}", params={"access_token": token, "fields": "permalink"}).json()
+        reel_url = info.get("permalink", f"https://www.instagram.com/reel/{post_id}/")
+        print(f"[🚀 REEL PUBLISHED!] Live URL: {reel_url}")
+        return {"id": post_id, "url": reel_url, "status": "PUBLISHED"}
+    except Exception as e:
+        print(f"[!] Meta Resumable API Error: {e}")
+        return None
+
+
 def upload_reel(video_path: str, caption: str, video_url: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Master uploader: Tries Direct 2-Env-Var login first, then Meta API."""
     # 1. Try Direct 2 Env Vars (Username + Password)
@@ -123,7 +222,13 @@ def upload_reel(video_path: str, caption: str, video_url: Optional[str] = None) 
         if res:
             return res
 
-    # 2. Try Meta API
+    # 2. Try Meta API (Local Resumable Upload)
+    if os.environ.get("INSTAGRAM_ACCESS_TOKEN") and os.path.exists(video_path):
+        res = upload_reel_meta_resumable(video_path, caption)
+        if res:
+            return res
+
+    # 3. Try Meta API (URL-based Upload)
     if os.environ.get("INSTAGRAM_ACCESS_TOKEN") and (video_url or video_path.startswith("http")):
         return upload_reel_meta_api(video_url or video_path, caption)
 

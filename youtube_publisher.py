@@ -29,8 +29,9 @@ def get_authenticated_service():
     token_json_str = os.environ.get("YOUTUBE_TOKEN_JSON")
     client_secret_str = os.environ.get("YOUTUBE_CLIENT_JSON") or os.environ.get("YOUTUBE_CLIENT_SECRET_JSON")
 
-    if not token_json_str and os.path.exists("token.json"):
-        with open("token.json", "r") as f:
+    token_path = pathlib.Path(__file__).parent / "token.json"
+    if not token_json_str and token_path.exists():
+        with open(token_path, "r", encoding="utf-8") as f:
             token_json_str = f.read()
 
     if not token_json_str:

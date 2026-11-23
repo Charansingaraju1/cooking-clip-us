@@ -125,18 +125,59 @@ def run_autonomous_slot(channel: str = "auto", source_url: str = None, hook: str
         return False
     print("[✅ INTEGRITY CONFIRMED] 1080x1920, 9:16 aspect ratio, valid audio, ready for broadcast.")
 
-    # Step 4: Autonomous Dual-Platform Upload (YouTube Shorts & Instagram Reels)
-    title = f"{channel.upper()} INSANE MOMENT! 💥"
-    print(f"[*] Publishing to YouTube Shorts...")
+    # Step 4: Autonomous Dual-Platform Upload with Winning 1,000-View Formula
+    import random
+    ch = channel.lower()
+    if "kai" in ch:
+        title_templates = [
+            "KAI CENAT GTA 6 COPS ESCAPE IS UNREAL 😭🔥 (Kai Cenat Reaction) #shorts #kaicenat",
+            "KAI CANNOT BELIEVE GTA 6 VICE CITY PHYSICS 💀 (Kai Cenat Reaction) #shorts #gta6",
+            "GTA 6 FIRST COMPOUND SHOOTOUT IS CRAZY 😭🔥 (Kai Cenat Reaction) #shorts #kaicenat",
+            "KAI CENAT 5-STAR WANTED LEVEL IN GTA 6 💀🚨 (Kai Cenat Reaction) #shorts #gta6"
+        ]
+        title = hook if (hook and len(hook) > 10 and "(" in hook) else (f"{hook} (Kai Cenat Reaction) #shorts #kaicenat" if hook else random.choice(title_templates))
+        yt_description = (
+            f"Kai Cenat exploring GTA 6 Vice City for the first time... the reactions are absolutely insane! Is this game of the century?\n\n"
+            f"Drop your thoughts from 1 to 10 below! 👇\n\n"
+            f"Subscribe to @Cooked_Clips_US for daily viral clips!\n\n"
+            f"#gta6 #gtavi #kaicenat #gaming #shorts #vicecity #twitchclips #rockstargames #kaicenatclips #cookedclips"
+        )
+        viral_tags = ["GTA 6", "GTA VI", "Kai Cenat", "Kai Cenat GTA 6", "GTA 6 graphics", "Grand Theft Auto VI", "Vice City", "Kai Cenat twitch", "GTA 6 gameplay", "gaming shorts", "viral shorts", "cooked clips", "twitch highlights", "amp kai"]
+        viral_hashtags = "#kaicenat #kaicenatclips #amp #gta6 #grandtheftauto6 #gta6gameplay #twitchmoments #streamerhighlights #gamingmemes #gamingreels #viralreels #fyp #explorepage #cookedclips"
+    elif "lacy" in ch:
+        title_templates = [
+            "GTA 6 GRAPHICS ARE ACTUALLY INSANE 😭🔥 (Lacy Reaction) #shorts #lacy",
+            "LACY BUSTED BY 5-STAR VICE CITY POLICE 💀 (Lacy Reaction) #shorts #gta6",
+            "LACY MOTORCYCLE ESCAPE IN GTA 6 IS CHAOS 😭 (Lacy Reaction) #shorts #lacy",
+            "FIRST HEIST GETAWAY IN GTA 6 IS SO INTENSE 😱🔥 (Lacy Reaction) #shorts #gta6"
+        ]
+        title = hook if (hook and len(hook) > 10 and "(" in hook) else (f"{hook} (Lacy Reaction) #shorts #lacy" if hook else random.choice(title_templates))
+        yt_description = (
+            f"Lacy flying through Vice City in GTA 6... the physics and graphics are completely unreal! Is this the best looking game ever?\n\n"
+            f"Rate this moment from 1 to 10 in the comments! 👇\n\n"
+            f"Subscribe to @Cooked_Clips_US for daily viral clips!\n\n"
+            f"#gta6 #gtavi #lacy #gaming #shorts #vicecity #twitchclips #rockstargames #fazelacy #cookedclips"
+        )
+        viral_tags = ["GTA 6", "GTA VI", "Lacy", "Lacy GTA 6", "GTA 6 graphics", "Grand Theft Auto VI", "Vice City", "Lacy twitch", "GTA 6 gameplay", "gaming shorts", "viral shorts", "cooked clips", "twitch highlights", "faze lacy"]
+        viral_hashtags = "#lacy #lacystream #lacymoments #faze #fazelacy #gta6 #grandtheftauto6 #gta6gameplay #streamer #streamerclips #twitchfails #gamingreels #viralreels #fyp #explorepage #cookedclips"
+    else:
+        title = f"{channel.upper()} GTA 6 UNBELIEVABLE MOMENT 😭🔥 #shorts"
+        yt_description = f"Wildest GTA 6 stream highlight! Subscribe to @Cooked_Clips_US for daily drops!\n\n#gta6 #shorts"
+        viral_tags = ["GTA 6", "Gaming", "Twitch", "Streamer Moments", "Shorts", "Viral Clips"]
+        viral_hashtags = "#gaming #gamingclips #streamer #streamerclips #twitch #twitchmoments #gta6 #grandtheftauto6 #viral #viralreels #fyp #explorepage #cookedclips"
+
+    ig_caption = f"{title}\n.\n.\nDrop your rating 1-10 in the comments below! 👇\n.\n.\n{viral_hashtags}"
+
+    print(f"[*] Publishing to YouTube Shorts with viral tags...")
     yt_result = youtube_publisher.upload_short(
         video_path=str(clip_to_upload),
         title=title,
-        description=f"{hook or title}\n\n#Shorts #Gaming #{channel.upper()} #ViralClips",
+        description=yt_description,
+        tags=viral_tags,
         privacy_status="public"
     )
 
-    print(f"[*] Publishing to Instagram Reels...")
-    ig_caption = f"{hook or title}\n.\n.\n#reels #viral #gaming #{channel.lower()} #shorts"
+    print(f"[*] Publishing to Instagram Reels with viral hashtags...")
     ig_result = instagram_publisher.upload_reel(str(clip_to_upload), ig_caption)
 
     # Step 5: Telegram Commander Alert
