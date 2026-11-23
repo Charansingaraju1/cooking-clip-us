@@ -4,10 +4,10 @@ on:
   schedule:
     # Slot 1: US Morning Commute (8:00 AM EST / 13:00 UTC)
     - cron: '0 13 * * *'
-    # Slot 2: US Lunch Rush (12:00 PM EST / 17:00 UTC)
-    - cron: '0 17 * * *'
-    # Slot 3: US Evening Prime Time (7:00 PM EST / 00:00 UTC)
-    - cron: '0 0 * * *'
+    # Slot 2: US Afternoon Peak (2:00 PM EST / 19:00 UTC)
+    - cron: '0 19 * * *'
+    # Slot 3: US Evening Prime Time (6:00 PM EST / 23:00 UTC)
+    - cron: '0 23 * * *'
   workflow_dispatch:
     inputs:
       channel:

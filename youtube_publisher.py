@@ -81,7 +81,8 @@ def upload_short(
             "description": description or f"{title}\n\nSubscribe for daily viral clips!\n#Shorts #Gaming #Twitch #Viral",
             "tags": tags,
             "categoryId": "20",  # Gaming
-            "defaultLanguage": "en"
+            "defaultLanguage": "en-US",
+            "defaultAudioLanguage": "en-US"
         },
         "status": {
             "privacyStatus": privacy_status,
