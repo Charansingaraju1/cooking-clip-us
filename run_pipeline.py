@@ -20,54 +20,6 @@ import instagram_publisher
 import telegram_commander
 
 
-def generate_viral_package(streamer: str, clip_description: str = "") -> dict | None:
-    """
-    Calls Claude Sonnet to generate a viral title, description, and hashtags.
-    Returns dict with keys: title, description, hashtags — or None on failure.
-    Requires ANTHROPIC_API_KEY env var.
-    """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        return None
-    try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=api_key)
-        prompt = (
-            f"You are a YouTube Shorts viral clip expert for a US gaming audience.\n"
-            f"Streamer: {streamer}\n"
-            f"Clip moment: {clip_description or 'intense GTA 6 gameplay moment'}\n\n"
-            f"Generate ONE viral YouTube Short package. Rules:\n"
-            f"1. Title: topic-first, under 48 characters TOTAL (not streamer-first), 1-2 emojis, NO hashtags in title. "
-            f"   Use curiosity gap. Example format: 'GTA 6 [EVENT] 😭🔥 ({streamer} Reaction)'\n"
-            f"2. Description: 2 punchy sentences. End with 'Rate 1-10 below 👇'. "
-            f"   Include 'Subscribe to @Cooked_Clips_US for daily clips!'. Max 200 chars.\n"
-            f"3. Hashtags: EXACTLY 3: #Shorts + 2 topic tags (e.g. #GTA6 #KaiCenat). No more.\n\n"
-            f"Reply in this EXACT format (no extra text):\n"
-            f"TITLE: <title here>\n"
-            f"DESC: <description here>\n"
-            f"TAGS: <#tag1 #tag2 #tag3>"
-        )
-        msg = client.messages.create(
-            model="claude-sonnet-4-5",
-            max_tokens=256,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        raw = msg.content[0].text.strip()
-        result = {}
-        for line in raw.splitlines():
-            if line.startswith("TITLE:"):
-                result["title"] = line[6:].strip()
-            elif line.startswith("DESC:"):
-                result["description"] = line[5:].strip()
-            elif line.startswith("TAGS:"):
-                result["hashtags"] = line[5:].strip()
-        if "title" in result and "description" in result:
-            return result
-    except Exception as e:
-        print(f"[Claude] API call failed, using template fallback: {e}")
-    return None
-
-
 def resolve_auto_streamer():
     """Auto-distributes daily uploads: Morning=Kai, Lunch=Lacy, Prime=Kai."""
     hour = datetime.datetime.utcnow().hour
@@ -173,67 +125,76 @@ def run_autonomous_slot(channel: str = "auto", source_url: str = None, hook: str
         return False
     print("[✅ INTEGRITY CONFIRMED] 1080x1920, 9:16 aspect ratio, valid audio, ready for broadcast.")
 
-    # Step 4: Autonomous Dual-Platform Upload — Claude Sonnet generates package, templates as fallback
+    # Step 4: Autonomous Dual-Platform Upload with Winning 1,000-View Formula
     import random
     ch = channel.lower()
 
-    # Try Claude Sonnet first
-    clip_desc = hook or ""
-    streamer_label = "Kai Cenat" if "kai" in ch else ("Lacy" if "lacy" in ch else channel)
-    claude_pkg = generate_viral_package(streamer_label, clip_desc)
-
     if "kai" in ch:
+        # AI-written curiosity-gap titles — topic first, under 48 chars before #Shorts, proven formula
         title_templates = [
-            "GTA 6 COPS ESCAPE IS UNREAL 😭🔥 (Kai Cenat Reaction) #Shorts",
-            "KAI CANNOT BELIEVE GTA 6 VICE CITY PHYSICS 💀 #Shorts",
-            "GTA 6 FIRST COMPOUND SHOOTOUT IS CRAZY 😭🔥 (Kai Cenat) #Shorts",
-            "KAI CENAT 5-STAR WANTED LEVEL IN GTA 6 💀🚨 #Shorts"
+            "GTA 6 BANK VAULT GAVE KAI $100K 😭💰 #Shorts",
+            "GTA 6 COPS CHASED KAI INTO THE OCEAN 🌊💀 #Shorts",
+            "KAI FOUND THE STRIP CLUB IN GTA 6 😭🔥 #Shorts",
+            "GTA 6 5-STAR ESCAPE BROKE KAI'S BRAIN 😱 #Shorts",
+            "GTA 6 PHYSICS MADE KAI LOSE IT 💀😭 #Shorts",
+            "KAI ROBBED A BANK IN GTA 6 FIRST TRY 💰🔥 #Shorts",
+            "GTA 6 HELICOPTER CHASE HAD KAI SHAKING 😱🔥 #Shorts",
+            "KAI ACCIDENTALLY STARTED A WAR IN GTA 6 💀 #Shorts",
+            "GTA 6 WATER GETAWAY NOBODY SAW COMING 🌊😭 #Shorts",
+            "KAI COULDN'T STOP LAUGHING AT GTA 6 COPS 😭 #Shorts",
+            "GTA 6 COMPOUND SHOOTOUT LEFT KAI SPEECHLESS 🔥 #Shorts",
+            "KAI'S FIRST GTA 6 HEIST WENT COMPLETELY WRONG 💀 #Shorts",
         ]
-        fallback_desc = (
-            "Kai Cenat exploring GTA 6 Vice City... reactions are absolutely insane!\n\n"
-            "Rate 1-10 below 👇\n\nSubscribe to @Cooked_Clips_US for daily viral clips!"
+        streamer_label = "Kai Cenat"
+        yt_description = (
+            "Kai Cenat hits GTA 6 Vice City and the reactions are absolutely unhinged 😭\n\n"
+            "What would YOU have done here? Rate 1-10 below 👇\n\n"
+            "Subscribe to @Cooked_Clips_US — daily Kai Cenat & GTA 6 highlights!\n\n"
+            "#gta6 #kaicenat #vicecity #twitchclips #Shorts"
         )
         viral_tags = ["GTA 6", "GTA VI", "Kai Cenat", "Kai Cenat GTA 6", "Grand Theft Auto VI",
-                      "Vice City", "GTA 6 gameplay", "gaming shorts", "viral shorts", "cooked clips",
-                      "twitch highlights", "amp kai", "kaicenat clips"]
-        viral_hashtags = "#kaicenat #gta6 #grandtheftauto6 #twitchmoments #gamingreels #fyp #cookedclips"
+                      "Vice City", "GTA 6 gameplay", "Kai Cenat twitch", "gaming shorts",
+                      "viral shorts", "cooked clips", "twitch highlights", "amp kai", "kaicenat clips",
+                      "GTA 6 reaction", "GTA 6 funny moments"]
+        viral_hashtags = "#kaicenat #kaicenatclips #gta6 #grandtheftauto6 #vicecity #twitchmoments #gamingreels #fyp #cookedclips"
     elif "lacy" in ch:
         title_templates = [
-            "GTA 6 GRAPHICS ARE ACTUALLY INSANE 😭🔥 (Lacy Reaction) #Shorts",
-            "LACY BUSTED BY 5-STAR VICE CITY POLICE 💀 #Shorts",
-            "LACY MOTORCYCLE ESCAPE IN GTA 6 IS CHAOS 😭 #Shorts",
-            "FIRST HEIST GETAWAY IN GTA 6 IS SO INTENSE 😱🔥 (Lacy) #Shorts"
+            "GTA 6 GRAPHICS LEFT LACY SPEECHLESS 😭🔥 #Shorts",
+            "LACY ESCAPED 5-STARS ON A MOTORCYCLE 💀😭 #Shorts",
+            "GTA 6 FIRST HEIST BROKE LACY 😱💰 #Shorts",
+            "LACY FOUND THE CRAZIEST SPOT IN GTA 6 🔥 #Shorts",
+            "GTA 6 COPS WOULDN'T LET LACY GO 😭💀 #Shorts",
+            "LACY'S FIRST GTA 6 CRASH IS HILARIOUS 😭🔥 #Shorts",
+            "GTA 6 WATER PHYSICS SENT LACY INTO A SPIRAL 🌊😱 #Shorts",
+            "LACY SAW SOMETHING IN GTA 6 NOBODY EXPECTED 💀 #Shorts",
+            "GTA 6 POLICE AI MADE LACY RAGE QUIT 😭🚨 #Shorts",
+            "LACY'S GTA 6 GETAWAY IS THE FUNNIEST THING 😭 #Shorts",
         ]
-        fallback_desc = (
-            "Lacy flying through Vice City in GTA 6... physics and graphics are completely unreal!\n\n"
-            "Rate 1-10 below 👇\n\nSubscribe to @Cooked_Clips_US for daily viral clips!"
+        streamer_label = "Lacy"
+        yt_description = (
+            "Lacy flies through Vice City in GTA 6 and completely loses it 😭🔥\n\n"
+            "Was this the right move? Rate 1-10 below 👇\n\n"
+            "Subscribe to @Cooked_Clips_US — daily Lacy & GTA 6 highlights!\n\n"
+            "#gta6 #lacy #fazelacy #vicecity #twitchclips #Shorts"
         )
         viral_tags = ["GTA 6", "GTA VI", "Lacy", "Lacy GTA 6", "Grand Theft Auto VI",
-                      "Vice City", "GTA 6 gameplay", "gaming shorts", "viral shorts", "cooked clips",
-                      "twitch highlights", "faze lacy"]
-        viral_hashtags = "#lacy #fazelacy #gta6 #grandtheftauto6 #gamingreels #fyp #cookedclips"
+                      "Vice City", "Lacy twitch", "GTA 6 gameplay", "faze lacy",
+                      "gaming shorts", "viral shorts", "cooked clips", "twitch highlights",
+                      "GTA 6 reaction", "GTA 6 funny moments"]
+        viral_hashtags = "#lacy #fazelacy #lacystream #gta6 #grandtheftauto6 #vicecity #gamingreels #fyp #cookedclips"
     else:
-        title_templates = [f"{channel.upper()} GTA 6 UNBELIEVABLE MOMENT 😭🔥 #Shorts"]
-        fallback_desc = f"Wildest GTA 6 highlight! Subscribe to @Cooked_Clips_US!\n\n#gta6 #Shorts"
-        viral_tags = ["GTA 6", "Gaming", "Twitch", "Streamer Moments", "Shorts", "Viral Clips"]
-        viral_hashtags = "#gaming #gta6 #viral #fyp #cookedclips"
+        title_templates = [f"{channel.upper()} GTA 6 NOBODY SAW THIS COMING 😭🔥 #Shorts"]
+        streamer_label = channel
+        yt_description = "Wildest GTA 6 highlight you'll see today 😭 Subscribe to @Cooked_Clips_US!\n\n#gta6 #Shorts"
+        viral_tags = ["GTA 6", "Gaming", "Twitch", "Streamer Moments", "Shorts", "Viral Clips", "GTA 6 funny"]
+        viral_hashtags = "#gaming #gta6 #grandtheftauto6 #viral #fyp #cookedclips"
 
     if hook and len(hook) > 10:
         title = f"{hook} ({streamer_label} Reaction) #Shorts"
-    elif claude_pkg:
-        title = claude_pkg["title"]
-        print(f"[Claude ✅] Generated title: {title}")
     else:
         title = random.choice(title_templates)
 
-    if claude_pkg:
-        yt_description = claude_pkg["description"]
-        ig_hashtags = claude_pkg.get("hashtags", viral_hashtags)
-    else:
-        yt_description = fallback_desc
-        ig_hashtags = viral_hashtags
-
-    ig_caption = f"{title}\n.\n.\nDrop your rating 1-10 below! 👇\n.\n.\n{ig_hashtags}"
+    ig_caption = f"{title}\n.\n.\nDrop your rating 1-10 below! 👇\n.\n.\n{viral_hashtags}"
 
     print(f"[*] Publishing to YouTube Shorts with viral tags...")
     yt_result = youtube_publisher.upload_short(
