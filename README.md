@@ -16,6 +16,16 @@ Autonomous 24/7 clipping engine deployed on Hugging Face Spaces.
 - **Subtitles**: Auto-transcribes speech and generates `.srt` files.
 - **Port**: Serves web dashboard on port `7860`.
 
+### Telegram configuration
+Set these as environment variables (or as GitHub/hosting-platform secrets):
+
+```text
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_numeric_chat_id
+```
+
+Never commit Telegram credentials. For local development, copy `.env.example` to `.env`.
+
 ### Deploying to Hugging Face:
 1. Create a new Space on [huggingface.co/new-space](https://huggingface.co/new-space)
 2. Select **Docker** as Space SDK.
