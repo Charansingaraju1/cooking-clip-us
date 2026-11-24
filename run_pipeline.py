@@ -21,11 +21,9 @@ import telegram_commander
 
 
 def resolve_auto_streamer():
-    """Auto-distributes daily uploads: Morning=Kai, Lunch=Lacy, Prime=Kai."""
+    """Two high-impact daily slots: Afternoon = Lacy (19:00 UTC), Prime = Kai (23:00 UTC)."""
     hour = datetime.datetime.utcnow().hour
-    if 11 <= hour <= 15:
-        return "kaicenat"
-    elif 16 <= hour <= 20:
+    if 17 <= hour <= 21:
         return "lacy"
     return "kaicenat"
 

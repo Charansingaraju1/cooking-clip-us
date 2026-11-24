@@ -9,3 +9,5 @@ clips/
 .env
 .env.*
 !.env.example
+
+.cloudflare_creds.json
