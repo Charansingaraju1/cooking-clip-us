@@ -44,11 +44,10 @@ REWARD_CAMPAIGNS = {
     "LACY": "https://contentrewards.com/c/campaigns/a5c63fad-cd53-4b81-9305-4a2d1696872a",
 }
 
-# 3 Daily Publishing Slots in UTC (US Peak Times)
+# 2 Daily Publishing Slots in UTC (US Peak Times - Zero Spam, Maximum Reach)
 SLOT_SCHEDULE = [
-    {"utc_h": 13, "utc_m": 0, "streamer": "Kai Cenat", "us_time": "08:00 AM EST", "ist_str": "06:30 PM IST"},
-    {"utc_h": 17, "utc_m": 0, "streamer": "Lacy", "us_time": "12:00 PM EST", "ist_str": "10:30 PM IST"},
-    {"utc_h": 0, "utc_m": 0, "streamer": "Kai Cenat", "us_time": "07:00 PM EST", "ist_str": "05:30 AM IST"},
+    {"utc_h": 19, "utc_m": 0, "streamer": "Lacy", "us_time": "02:00 PM EST", "ist_str": "12:30 AM IST"},
+    {"utc_h": 23, "utc_m": 0, "streamer": "Kai Cenat", "us_time": "06:00 PM EST", "ist_str": "04:30 AM IST"},
 ]
 
 # Lazy load Whisper model
@@ -354,18 +353,16 @@ def dispatch_command(cmd: str, chat_id: int):
 
     elif c in ("/schedule", "schedule", "/times", "times"):
         sched_msg = (
-            "⏰ <b>20-DAY AUTONOMOUS PUBLISHING SCHEDULE</b>\n"
+            "⏰ <b>2-SLOT AUTONOMOUS PUBLISHING SCHEDULE</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "🌅 <b>Slot 1 (US Morning Commute):</b>\n"
-            "   • 🇺🇸 <b>08:00 AM EST</b> | 🇮🇳 <b>06:30 PM IST</b>\n"
-            "   • 👤 Streamer: <b>Kai Cenat</b> | Status: <b>PUBLISHED</b> ✅\n\n"
-            "☀️ <b>Slot 2 (US Lunch Rush):</b>\n"
-            "   • 🇺🇸 <b>12:00 PM EST</b> | 🇮🇳 <b>10:30 PM IST</b>\n"
-            "   • 👤 Streamer: <b>Lacy</b> | Status: <b>PUBLISHED</b> ✅\n\n"
-            "🌙 <b>Slot 3 (US Evening Prime Time):</b>\n"
-            "   • 🇺🇸 <b>07:00 PM EST</b> | 🇮🇳 <b>05:30 AM IST (Next Morning)</b>\n"
-            "   • 👤 Streamer: <b>Kai Cenat</b> | Status: <b>STAGED & ARMED</b> 🚀\n\n"
-            "✨ <i>All slots post automatically to YouTube Shorts and Instagram Reels simultaneously!</i>"
+            "☀️ <b>Slot 1: US Afternoon Peak (19:00 UTC):</b>\n"
+            "   • 🇺🇸 <b>02:00 PM EST</b> | 🇮🇳 <b>12:30 AM IST</b>\n"
+            "   • 👤 Streamer: <b>Lacy</b> (GTA 6 Reaction & Physics)\n"
+            "   • 📊 Format: 70/30 Extreme Facecam + Phonk BGM (<22s Loop)\n\n"
+            "🌙 <b>Slot 2: US Prime Time (23:00 UTC):</b>\n"
+            "   • 🇺🇸 <b>06:00 PM EST</b> | 🇮🇳 <b>04:30 AM IST</b>\n"
+            "   • 👤 Streamer: <b>Kai Cenat</b> (High Stakes & Heists)\n\n"
+            "✨ <i>All uploads run autonomously through US cloud servers!</i>"
         )
         send_message(sched_msg, chat_id)
 
