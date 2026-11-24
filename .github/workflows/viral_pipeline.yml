@@ -9,6 +9,9 @@ on:
     # Slot 3: US Evening Prime Time (6:00 PM EST / 23:00 UTC)
     - cron: '0 23 * * *'
   workflow_dispatch:
+  push:
+    branches:
+      - trigger-us-upload
     inputs:
       channel:
         description: 'Streamer Channel (kaicenat, lacy, ishowspeed)'
