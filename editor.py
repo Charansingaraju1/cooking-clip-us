@@ -211,5 +211,43 @@ def verify_video_integrity(video_path: str) -> dict:
         return {"valid": False, "error": str(e)}
 
 
+def generate_viral_thumbnail(frame_jpg_path: str, hook_text: str = "", badge_text: str = "GTA 6 REACTION", out_path: str = None) -> str:
+    """Generates a high-contrast 1080x1920 viral preview thumbnail with saturation boost and neon text."""
+    try:
+        from PIL import Image, ImageEnhance, ImageDraw, ImageFont
+        if not out_path:
+            out_path = str(pathlib.Path(frame_jpg_path).with_name(f"thumb_{pathlib.Path(frame_jpg_path).name}"))
+        img = Image.open(frame_jpg_path).convert("RGB")
+        img = img.resize((1080, 1920), Image.Resampling.LANCZOS)
+        # Boost saturation and contrast for mobile AMOLED/OLED displays
+        img = ImageEnhance.Color(img).enhance(1.18)
+        img = ImageEnhance.Contrast(img).enhance(1.12)
+        draw = ImageDraw.Draw(img)
+
+        # Top viral badge
+        badge_y = 160
+        badge_box = (120, badge_y, 960, badge_y + 90)
+        draw.rounded_rectangle(badge_box, radius=18, fill=(235, 30, 30), outline=(255, 255, 255), width=3)
+        try:
+            font_badge = ImageFont.truetype("arialbd.ttf", 46)
+            font_hook = ImageFont.truetype("impact.ttf", 80)
+        except Exception:
+            font_badge = ImageFont.load_default()
+            font_hook = ImageFont.load_default()
+
+        draw.text((540, badge_y + 45), badge_text.upper(), font=font_badge, fill="white", anchor="mm")
+
+        # Main hook text overlay
+        if hook_text:
+            hook_y = 1040
+            draw.text((540, hook_y), hook_text.upper(), font=font_hook, fill="#FFE800", stroke_width=6, stroke_fill="black", anchor="mm")
+
+        img.save(out_path, quality=92)
+        return out_path
+    except Exception as e:
+        print(f"[!] Thumbnail generation fallback: {e}")
+        return frame_jpg_path
+
+
 if __name__ == "__main__":
     print("[*] Viral Auto-Editor & Subtitler initialized.")
