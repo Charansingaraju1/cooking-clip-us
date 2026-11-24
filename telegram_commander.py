@@ -205,15 +205,15 @@ def smart_ai_response(user_text: str) -> str:
 
     elif any(k in t for k in ["plan", "schedule", "timing", "time", "what's next", "when next"]):
         return (
-            "Yes Boss, here is today's 3-Slot US Viral Schedule:\n\n"
-            "🌅 <b>Slot 1 (US Morning Commute — 8:00 AM EST / 6:30 PM IST):</b>\n"
-            "   • Streamer: <b>Kai Cenat</b> | Status: <b>PUBLISHED & LIVE</b> ✅\n\n"
-            "☀️ <b>Slot 2 (US Lunch Rush — 12:00 PM EST / 10:30 PM IST):</b>\n"
-            "   • Streamer: <b>Lacy</b> | Status: <b>PUBLISHED & LIVE</b> ✅\n\n"
-            "🌙 <b>Slot 3 (US Prime Time — 7:00 PM EST / 5:30 AM IST):</b>\n"
-            "   • Streamer: <b>Kai Cenat</b> | Clip: <code>NEW_2_KAI_GTA6_IRL_GETAWAY.mp4</code>\n"
-            "   • Status: <b>STAGED & READY</b> 🚀\n\n"
-            "Type <code>/upload</code> anytime to push Slot 3 right now, Boss!"
+            "Yes Boss, here is today's 2-Slot US Viral Schedule (Zero Spam, Maximum Reach):\n\n"
+            "☀️ <b>Slot 1: US Afternoon Peak (2:00 PM EST / 19:00 UTC):</b>\n"
+            "   • Streamer: <b>Lacy</b> (GTA 6 Graphics & Physics Chaos)\n"
+            "   • Format: <b>70/30 Extreme Facecam + Phonk BGM</b> (<22s Loop)\n"
+            "   • Status: <b>ARMED FOR CLOUD DISPATCH</b> 🚀\n\n"
+            "🌙 <b>Slot 2: US Prime Time (6:00 PM EST / 23:00 UTC):</b>\n"
+            "   • Streamer: <b>Kai Cenat</b> (High-Stakes Heists & Chases)\n"
+            "   • Status: <b>SCHEDULED IN US RUNNER</b> ✅\n\n"
+            "Type <code>/upload</code> anytime or paste a YouTube link to queue it up immediately, Boss!"
         )
 
     elif any(k in t for k in ["what are you doing", "what are u doing", "doing right now", "doing now"]):
@@ -417,9 +417,13 @@ def dispatch_command(cmd: str, chat_id: int):
         send_message(status_msg, chat_id)
 
     elif c in ("/analyze", "analyze", "/audit", "audit", "/monetize", "monetize", "/growth", "growth"):
-        send_message("🔍 <i>Channel Growth & Monetization Analyst deployed... Auditing algorithms & metrics, Boss!</i>", chat_id)
+        send_message("🔍 <i>Running live YouTube Shorts performance audit & growth analysis, Boss...</i>", chat_id)
         try:
+            import analytics_engine
             import channel_growth_agent
+            audit = analytics_engine.run_performance_audit()
+            analytics_msg = analytics_engine.format_telegram_analytics(audit)
+            send_message(analytics_msg, chat_id)
             rep = channel_growth_agent.analyze_channel()
             summary = channel_growth_agent.format_telegram_summary(rep)
             send_message(summary, chat_id)

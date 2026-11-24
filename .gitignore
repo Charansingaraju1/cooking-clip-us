@@ -4,6 +4,7 @@ __pycache__/
 data/
 rec/
 clips/
+output/
 *.log
 .DS_Store
 .env
@@ -11,3 +12,7 @@ clips/
 !.env.example
 
 .cloudflare_creds.json
+.meta_creds.json
+client_secret.json
+token.json
+*.bak

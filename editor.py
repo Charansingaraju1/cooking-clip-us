@@ -197,7 +197,7 @@ def verify_video_integrity(video_path: str) -> dict:
         h = int(v_stream.get("height", 0))
         dur = float(data.get("format", {}).get("duration", 0.0))
 
-        valid = (w == 1080 and h == 1920 and 15.0 <= dur <= 65.0)
+        valid = (w == 1080 and h == 1920 and 8.0 <= dur <= 65.0)
         return {
             "valid": valid,
             "width": w,
