@@ -27,9 +27,33 @@ def format_ass_time(seconds: float) -> str:
     return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
 
-def generate_karaoke_ass(segments, output_path: pathlib.Path, video_width=1080, video_height=1920):
+def generate_hook_voiceover(hook_text: str, output_path: pathlib.Path) -> str:
+    """Generates a punchy 2-second cold-open Edge-TTS commentary intro for YPP originality + retention."""
+    clean = re.sub(r"[^\w\s.,!?'\"-]", "", hook_text or "").strip()
+    if not clean:
+        return None
+    try:
+        import asyncio
+        import edge_tts
+
+        out_p = pathlib.Path(output_path).resolve()
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+
+        async def _synth():
+            comm = edge_tts.Communicate(clean, voice="en-US-AndrewNeural", rate="+18%")
+            await comm.save(str(out_p))
+
+        asyncio.run(_synth())
+        if out_p.exists() and out_p.stat().st_size > 1000:
+            return str(out_p)
+    except Exception as e:
+        print(f"[!] Hook voiceover skipped: {e}")
+    return None
+
+
+def generate_karaoke_ass(segments, output_path: pathlib.Path, video_width=1080, video_height=1920, hook_text: str = ""):
     """
-    Generates high-contrast, yellow/cyan ASS subtitles placed in the lower-middle zone.
+    Generates top open-loop hook banner (0-3.5s) and yellow ASS subtitles in the lower zone.
     """
     header = f"""[Script Info]
 Title: Cooking Clip US Karaoke Subtitles
@@ -42,12 +66,17 @@ PlayResY: {video_height}
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: ViralYellow,Impact,74,&H0000FFFF,&H000000FF,&H00000000,&H90000000,-1,0,0,0,100,100,1,0,1,6,4,2,60,60,320,1
+Style: TopHook,Impact,68,&H0000E8FF,&H000000FF,&H00000000,&HC0000000,-1,0,0,0,100,100,1,0,1,8,4,8,50,50,115,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     events = []
-    for seg in segments:
+    clean_hook = re.sub(r"[^\w\s.,!?'\"$%-]", "", hook_text or "").strip().upper()
+    if clean_hook:
+        events.append(f"Dialogue: 1,0:00:00.00,0:00:03.50,TopHook,,0,0,0,,{clean_hook}")
+
+    for seg in segments or []:
         text = getattr(seg, "text", str(seg)).strip()
         start = getattr(seg, "start", 0.0)
         end = getattr(seg, "end", start + 2.0)
@@ -64,7 +93,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     return output_path
 
 
-def build_stack_filters(channel: str = "", hook_text: str = "", ass_path: str = None, has_bgm: bool = False):
+def build_stack_filters(channel: str = "", hook_text: str = "", ass_path: str = None, has_bgm: bool = False, has_vo: bool = False):
     ch = channel.lower() if channel else ""
     # Normalize any input resolution to 1920x1080 before cropping so 720p/1080p VODs never crash crop geometry.
     norm = "[0:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,split=2[vcam][vgame]"
@@ -82,19 +111,41 @@ def build_stack_filters(channel: str = "", hook_text: str = "", ass_path: str = 
         cam = "[vcam]crop=1280:720:0:0,scale=1080:1100:flags=lanczos[cam]"
         game = "[vgame]crop=1080:820:420:0,scale=1080:820:flags=lanczos[game]"
 
-    chain = f"{norm};{cam};{game};[cam][game]vstack=inputs=2[vstacked]"
-    curr_v = "[vstacked]"
+    # Alternate subtle 10% zoom punch every 2.0s to reset visual attention (matches 1.5-2.5s Shorts pacing rule)
+    punch = "[cam][game]vstack=inputs=2,crop=w='if(lt(mod(t,4),2),1080,980)':h='if(lt(mod(t,4),2),1920,1742)':x='(iw-ow)/2':y='(ih-oh)/2',scale=1080:1920:flags=bilinear,setsar=1[vpunch]"
+    chain = f"{norm};{cam};{game};{punch}"
+    curr_v = "[vpunch]"
 
-    # ASS Subtitles Filter
+    # ASS Subtitles & Top Hook Banner Filter
     if ass_path and os.path.exists(ass_path):
         ass_name = pathlib.Path(ass_path).name
         chain += f";{curr_v}ass={ass_name}[vout]"
     else:
         chain += f";{curr_v}null[vout]"
 
-    # Audio Mixing: Layer viral BGM ducked by -20dB to ensure vocal punchline clarity
+    # Audio Mixing: duck stream slightly during 2.5s cold-open voiceover, layer -20dB BGM, normalize -14 LUFS
+    in_idx = 1
+    mix_inputs = []
+    if has_vo:
+        chain += ";[0:a]volume='if(lt(t,2.5),0.35,1.0)'[base_a]"
+        mix_inputs.append("[base_a]")
+    else:
+        mix_inputs.append("[0:a]")
+
     if has_bgm:
-        chain += ";[1:a]aloop=loop=-1:size=2e+09,volume=0.10[bgm];[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=2,loudnorm=I=-14:LRA=7:tp=-1.5[aout]"
+        bgm_idx = in_idx
+        in_idx += 1
+        chain += f";[{bgm_idx}:a]aloop=loop=-1:size=2e+09,volume=0.10[bgm]"
+        mix_inputs.append("[bgm]")
+
+    if has_vo:
+        vo_idx = in_idx
+        in_idx += 1
+        chain += f";[{vo_idx}:a]volume=1.35[vo]"
+        mix_inputs.append("[vo]")
+
+    if len(mix_inputs) > 1:
+        chain += f";{''.join(mix_inputs)}amix=inputs={len(mix_inputs)}:duration=first:dropout_transition=2,loudnorm=I=-14:LRA=7:tp=-1.5[aout]"
         audio_map = ["-map", "[aout]"]
     else:
         audio_map = ["-map", "0:a?", "-af", "loudnorm=I=-14:LRA=7:tp=-1.5"]
@@ -110,9 +161,10 @@ def render_vertical_clip(
     duration: float,
     channel: str = "",
     hook_text: str = "",
-    ass_path: str = None
+    ass_path: str = None,
+    vo_path: str = None
 ) -> bool:
-    """Renders high-impact 70/30 reaction vertical video with ducked viral BGM."""
+    """Renders high-impact 70/30 reaction vertical video with 2s zoom punches, -20dB BGM, and optional voiceover hook."""
     out_p = pathlib.Path(output_video).resolve()
     out_p.parent.mkdir(parents=True, exist_ok=True)
     working_dir = out_p.parent
@@ -125,8 +177,9 @@ def render_vertical_clip(
     ]
     bgm_file = next((p for p in bgm_candidates if p.exists()), None)
     has_bgm = bgm_file is not None
+    has_vo = bool(vo_path and os.path.exists(vo_path))
 
-    filter_complex = build_stack_filters(channel, hook_text, ass_path, has_bgm=has_bgm)
+    filter_complex = build_stack_filters(channel, hook_text, ass_path, has_bgm=has_bgm, has_vo=has_vo)
 
     in_p = str(pathlib.Path(input_video).resolve())
     cmd = [
@@ -137,6 +190,8 @@ def render_vertical_clip(
     ]
     if has_bgm:
         cmd += ["-i", str(bgm_file)]
+    if has_vo:
+        cmd += ["-i", str(pathlib.Path(vo_path).resolve())]
 
     cmd += filter_complex + [
         "-c:v", "libx264",

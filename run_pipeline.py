@@ -97,28 +97,38 @@ def run_autonomous_slot(channel: str = "auto", source_url: str = None, hook: str
         # Step 2: Hype Detection & Moment Selection
         clip_rendered = out_dir / f"viral_{channel}_{session_id}.mp4"
         ass_subtitles = out_dir / f"subs_{session_id}.ass"
-        hook_text = hook or f"{channel.upper()} CANNOT BELIEVE THIS HAPPENED 😱"
+        hook_presets = [
+            "NOBODY CAUGHT THIS IN GTA 6",
+            "WAIT UNTIL SECOND 10",
+            "THIS DOESN'T LOOK LIKE A GAME",
+            "ROCKSTAR HID THIS DETAIL",
+        ]
+        import random as _rnd
+        hook_text = hook or _rnd.choice(hook_presets)
+        vo_file = editor.generate_hook_voiceover(hook_text, out_dir / f"vo_{session_id}.mp3")
 
-        # Transcribe & build ASS subtitles
-        print("[*] Generating Whisper karaoke subtitles...")
+        # Transcribe & build top hook banner + ASS karaoke subtitles (subtitles match t=0s)
+        print("[*] Generating Whisper karaoke subtitles & top hook banner...")
+        segments = []
         try:
             from faster_whisper import WhisperModel
             wmodel = WhisperModel("base", device="cpu", compute_type="int8")
             segments, _ = wmodel.transcribe(str(raw_video), beam_size=5)
-            editor.generate_karaoke_ass(segments, ass_subtitles)
         except Exception as e:
             print(f"[!] Whisper transcription note: {e}")
+        editor.generate_karaoke_ass(segments, ass_subtitles, hook_text=hook_text)
 
-        # Render 70/30 vertical video clamped to 15s for >100% APV replay loops
-        print("[*] Rendering 70/30 1080x1920 vertical video (15s loop + -20dB BGM)...")
+        # Render 70/30 vertical video clamped to 15s + 2s zoom punches + voiceover hook
+        print("[*] Rendering 70/30 1080x1920 vertical video (15s loop + 2s punches + -20dB BGM)...")
         success = editor.render_vertical_clip(
             input_video=str(raw_video),
             output_video=str(clip_rendered),
-            start_sec=5.0,
+            start_sec=0.0,
             duration=15.0,
             channel=channel,
             hook_text=hook_text,
-            ass_path=str(ass_subtitles) if ass_subtitles.exists() else None
+            ass_path=str(ass_subtitles) if ass_subtitles.exists() else None,
+            vo_path=vo_file,
         )
         if not success:
             telegram_commander.send_message(f"❌ <b>Cloud Render Failed ({channel.upper()})</b> — FFmpeg error on runner.")
