@@ -90,9 +90,9 @@ def build_stack_filters(channel: str = "", hook_text: str = "", ass_path: str = 
     else:
         chain += f";{curr_v}null[vout]"
 
-    # Audio Mixing: Layer viral BGM if present
+    # Audio Mixing: Layer viral BGM ducked by -20dB to ensure vocal punchline clarity
     if has_bgm:
-        chain += ";[1:a]aloop=loop=-1:size=2e+09,volume=0.20[bgm];[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=2,loudnorm=I=-14:LRA=7:tp=-1.5[aout]"
+        chain += ";[1:a]aloop=loop=-1:size=2e+09,volume=0.10[bgm];[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=2,loudnorm=I=-14:LRA=7:tp=-1.5[aout]"
         audio_map = ["-map", "[aout]"]
     else:
         audio_map = ["-map", "0:a?", "-af", "loudnorm=I=-14:LRA=7:tp=-1.5"]

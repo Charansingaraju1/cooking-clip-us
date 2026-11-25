@@ -128,19 +128,18 @@ def run_autonomous_slot(channel: str = "auto", source_url: str = None, hook: str
     ch = channel.lower()
 
     if "kai" in ch:
-        # AI-written curiosity-gap titles — topic first, under 48 chars before #Shorts, proven formula
+        # High-velocity curiosity-gap titles recommended by YouTube Studio AI — topic first, under 48 chars
         title_templates = [
-            "GTA 6 BANK VAULT GAVE KAI $100K 😭💰 #Shorts",
-            "GTA 6 COPS CHASED KAI INTO THE OCEAN 🌊💀 #Shorts",
+            "The GTA 6 Detail Everyone Missed 😳 #Shorts",
+            "This Doesn't Even Look Like a Game 😭🔥 #Shorts",
+            "Rockstar Actually Did It This Time 💀 #Shorts",
+            "GTA 6 GRAPHICS JUST BROKE THE INTERNET 😭🔥 #Shorts",
+            "Rockstar didn't want this leaked... 💀 #Shorts",
             "KAI FOUND THE STRIP CLUB IN GTA 6 😭🔥 #Shorts",
+            "GTA 6 BANK VAULT GAVE KAI $100K 😭💰 #Shorts",
             "GTA 6 5-STAR ESCAPE BROKE KAI'S BRAIN 😱 #Shorts",
-            "GTA 6 PHYSICS MADE KAI LOSE IT 💀😭 #Shorts",
-            "KAI ROBBED A BANK IN GTA 6 FIRST TRY 💰🔥 #Shorts",
-            "GTA 6 HELICOPTER CHASE HAD KAI SHAKING 😱🔥 #Shorts",
-            "KAI ACCIDENTALLY STARTED A WAR IN GTA 6 💀 #Shorts",
+            "Nobody noticed this detail in GTA 6... 😳 #Shorts",
             "GTA 6 WATER GETAWAY NOBODY SAW COMING 🌊😭 #Shorts",
-            "KAI COULDN'T STOP LAUGHING AT GTA 6 COPS 😭 #Shorts",
-            "GTA 6 COMPOUND SHOOTOUT LEFT KAI SPEECHLESS 🔥 #Shorts",
             "KAI'S FIRST GTA 6 HEIST WENT COMPLETELY WRONG 💀 #Shorts",
         ]
         streamer_label = "Kai Cenat"
@@ -157,15 +156,15 @@ def run_autonomous_slot(channel: str = "auto", source_url: str = None, hook: str
         viral_hashtags = "#kaicenat #kaicenatclips #gta6 #grandtheftauto6 #vicecity #twitchmoments #gamingreels #fyp #cookedclips"
     elif "lacy" in ch:
         title_templates = [
-            "GTA 6 GRAPHICS LEFT LACY SPEECHLESS 😭🔥 #Shorts",
-            "LACY ESCAPED 5-STARS ON A MOTORCYCLE 💀😭 #Shorts",
-            "GTA 6 FIRST HEIST BROKE LACY 😱💰 #Shorts",
-            "LACY FOUND THE CRAZIEST SPOT IN GTA 6 🔥 #Shorts",
-            "GTA 6 COPS WOULDN'T LET LACY GO 😭💀 #Shorts",
-            "LACY'S FIRST GTA 6 CRASH IS HILARIOUS 😭🔥 #Shorts",
+            "This Doesn't Even Look Like a Game 😭🔥 #Shorts",
+            "The GTA 6 Detail Everyone Missed 😳 #Shorts",
+            "Rockstar Actually Did It This Time 💀 #Shorts",
+            "GTA 6 GRAPHICS ARE ACTUALLY INSANE 😭🔥 #Shorts",
+            "GTA 6 GRAPHICS JUST BROKE THE INTERNET 😭🔥 #Shorts",
+            "Nobody noticed this detail in GTA 6... 😳 #Shorts",
+            "LACY CANNOT BELIEVE THIS GTA 6 DETAIL 😱🔥 #Shorts",
             "GTA 6 WATER PHYSICS SENT LACY INTO A SPIRAL 🌊😱 #Shorts",
-            "LACY SAW SOMETHING IN GTA 6 NOBODY EXPECTED 💀 #Shorts",
-            "GTA 6 POLICE AI MADE LACY RAGE QUIT 😭🚨 #Shorts",
+            "Rockstar didn't want this leaked... 💀 #Shorts",
             "LACY'S GTA 6 GETAWAY IS THE FUNNIEST THING 😭 #Shorts",
         ]
         streamer_label = "Lacy"
