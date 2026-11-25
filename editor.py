@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 """
-Cooking Clip US - Viral Auto-Editor & Subtitler
-Features:
-- Dual stacked vertical layout (Facecam top 35% ~672px, Gameplay bottom 65% ~1248px, total 1080x1920).
-- High-contrast curiosity hook text on the top frame (first 3 seconds).
-- Stylized ASS karaoke-style subtitles.
-- Audio loudness normalization (-14 LUFS broadcast standard).
-- Video integrity verification (resolution, framerate, duration, audio levels).
+Cooked Clips US - 100% Original High-Retention Shorts Generator
+Zero third-party video clipping. Synthesizes HD Wikipedia visuals with smooth zoom,
+Edge-TTS WordBoundary synced captions, top hook banner, countdown bar, and -20dB BGM.
 """
 
+import asyncio
 import json
 import os
 import pathlib
 import re
 import subprocess
-import sys
+import urllib.parse
+import urllib.request
+from typing import Dict, List, Optional, Tuple
+
+from PIL import Image, ImageDraw, ImageEnhance
+
+VOICE_NAME = "en-US-AndrewNeural"
 
 
 def format_ass_time(seconds: float) -> str:
@@ -27,199 +30,239 @@ def format_ass_time(seconds: float) -> str:
     return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
 
-def generate_hook_voiceover(hook_text: str, output_path: pathlib.Path) -> str:
-    """Generates a punchy 2-second cold-open Edge-TTS commentary intro for YPP originality + retention."""
-    clean = re.sub(r"[^\w\s.,!?'\"-]", "", hook_text or "").strip()
-    if not clean:
-        return None
+def _prepare_scene_image(src_img: Optional[Image.Image], dest_jpg: pathlib.Path, idx: int) -> str:
+    """Normalizes image to 1200x2134 (9:16 oversampled for smooth zoom) with dark vignette."""
+    W, H = 1200, 2134
+    if src_img is None:
+        # Procedural dark gradient fallback if external image fetch fails.
+        palettes = [((18, 28, 48), (6, 10, 18)), ((40, 18, 32), (10, 6, 14)), ((16, 42, 38), (6, 12, 12))]
+        c_top, c_bot = palettes[idx % len(palettes)]
+        canvas = Image.new("RGB", (W, H), c_bot)
+        draw = ImageDraw.Draw(canvas)
+        for y in range(0, H, 8):
+            t = y / H
+            r = int(c_top[0] * (1 - t) + c_bot[0] * t)
+            g = int(c_top[1] * (1 - t) + c_bot[1] * t)
+            b = int(c_top[2] * (1 - t) + c_bot[2] * t)
+            draw.rectangle([(0, y), (W, y + 8)], fill=(r, g, b))
+    else:
+        img = src_img.convert("RGB")
+        iw, ih = img.size
+        target_ratio = W / H
+        if iw / ih > target_ratio:
+            new_w = int(ih * target_ratio)
+            left = (iw - new_w) // 2
+            img = img.crop((left, 0, left + new_w, ih))
+        else:
+            new_h = int(iw / target_ratio)
+            top = (ih - new_h) // 2
+            img = img.crop((0, top, iw, top + new_h))
+        canvas = img.resize((W, H), Image.Resampling.LANCZOS)
+        canvas = ImageEnhance.Color(canvas).enhance(1.15)
+        canvas = ImageEnhance.Contrast(canvas).enhance(1.08)
+
+    # Top and bottom dark vignette so white/yellow overlays read effortlessly.
+    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    odraw = ImageDraw.Draw(overlay)
+    for y in range(0, 420, 4):
+        alpha = int(190 * (1 - y / 420))
+        odraw.rectangle([(0, y), (W, y + 4)], fill=(0, 0, 0, alpha))
+    for y in range(H - 650, H, 4):
+        alpha = int(210 * ((y - (H - 650)) / 650))
+        odraw.rectangle([(0, y), (W, y + 4)], fill=(0, 0, 0, alpha))
+
+    merged = Image.alpha_composite(canvas.convert("RGBA"), overlay).convert("RGB")
+    dest_jpg.parent.mkdir(parents=True, exist_ok=True)
+    merged.save(dest_jpg, quality=92)
+    return str(dest_jpg.resolve())
+
+
+def fetch_wikipedia_scene(wiki_slug: str, dest_jpg: pathlib.Path, idx: int) -> str:
+    """Downloads a crisp CC/public-domain visual from Wikipedia's REST Summary API."""
+    url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(wiki_slug)}"
+    headers = {"User-Agent": "CookedClipsUS/2.0 (https://github.com/Charansingaraju1/cooking-clip-us)"}
+    img_obj = None
     try:
-        import asyncio
-        import edge_tts
-
-        out_p = pathlib.Path(output_path).resolve()
-        out_p.parent.mkdir(parents=True, exist_ok=True)
-
-        async def _synth():
-            comm = edge_tts.Communicate(clean, voice="en-US-AndrewNeural", rate="+18%")
-            await comm.save(str(out_p))
-
-        asyncio.run(_synth())
-        if out_p.exists() and out_p.stat().st_size > 1000:
-            return str(out_p)
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        img_url = (data.get("originalimage") or data.get("thumbnail") or {}).get("source")
+        if img_url:
+            ireq = urllib.request.Request(img_url, headers=headers)
+            img_path = dest_jpg.with_suffix(".raw")
+            with urllib.request.urlopen(ireq, timeout=12) as iresp:
+                img_path.write_bytes(iresp.read())
+            img_obj = Image.open(img_path)
+            img_obj.load()
+            img_path.unlink(missing_ok=True)
     except Exception as e:
-        print(f"[!] Hook voiceover skipped: {e}")
-    return None
+        print(f"[!] Visual fetch fallback for {wiki_slug}: {e}")
+    return _prepare_scene_image(img_obj, dest_jpg, idx)
 
 
-def generate_karaoke_ass(segments, output_path: pathlib.Path, video_width=1080, video_height=1920, hook_text: str = ""):
-    """
-    Generates top open-loop hook banner (0-3.5s) and yellow ASS subtitles in the lower zone.
-    """
-    header = f"""[Script Info]
-Title: Cooking Clip US Karaoke Subtitles
+def synthesize_tts_with_sync(
+    script_text: str,
+    mp3_path: pathlib.Path,
+    ass_path: pathlib.Path,
+    hook_banner: str,
+) -> float:
+    """Synthesizes Edge-TTS voiceover and writes exact WordBoundary 2-3 word ASS captions."""
+    words: List[Tuple[float, float, str]] = []
+
+    async def _run():
+        comm = edge_tts.Communicate(script_text, VOICE_NAME, rate="+14%", boundary="WordBoundary")
+        audio_bytes = bytearray()
+        async for chunk in comm.stream():
+            if chunk["type"] == "audio":
+                audio_bytes.extend(chunk["data"])
+            elif chunk["type"] == "WordBoundary":
+                start_s = chunk["offset"] / 1e7
+                dur_s = max(chunk["duration"] / 1e7, 0.12)
+                words.append((start_s, start_s + dur_s, chunk["text"]))
+        mp3_path.parent.mkdir(parents=True, exist_ok=True)
+        mp3_path.write_bytes(bytes(audio_bytes))
+
+    import edge_tts
+    asyncio.run(_run())
+
+    # Group into snappy 2-3 word chunks for effortless mobile reading.
+    events = []
+    clean_hook = re.sub(r"[^\w\s.,!?'\"$%-]", "", hook_banner or "").strip().upper()
+    if clean_hook:
+        events.append(f"Dialogue: 1,0:00:00.00,0:00:04.00,TopHook,,0,0,0,,{clean_hook}")
+
+    i = 0
+    while i < len(words):
+        chunk = words[i : i + 3]
+        c_start = chunk[0][0]
+        c_end = words[i + 3][0] if i + 3 < len(words) else chunk[-1][1] + 0.20
+        phrase = " ".join(w[2] for w in chunk).upper().replace("{", "").replace("}", "")
+        events.append(
+            f"Dialogue: 0,{format_ass_time(c_start)},{format_ass_time(c_end)},CaptionMain,,0,0,0,,{phrase}"
+        )
+        i += 3
+
+    header = """[Script Info]
+Title: Cooked Clips US Original Shorts
 ScriptType: v4.00+
 WrapStyle: 0
 ScaledBorderAndShadow: yes
-PlayResX: {video_width}
-PlayResY: {video_height}
+PlayResX: 1080
+PlayResY: 1920
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: ViralYellow,Impact,74,&H0000FFFF,&H000000FF,&H00000000,&H90000000,-1,0,0,0,100,100,1,0,1,6,4,2,60,60,320,1
-Style: TopHook,Impact,68,&H0000E8FF,&H000000FF,&H00000000,&HC0000000,-1,0,0,0,100,100,1,0,1,8,4,8,50,50,115,1
+Style: CaptionMain,DejaVu Sans,78,&H0000FFFF,&H000000FF,&H00000000,&HB0000000,-1,0,0,0,100,100,0,0,1,7,3,2,70,70,420,1
+Style: TopHook,DejaVu Sans,62,&H00FFFFFF,&H000000FF,&H000000FF,&HE01414D8,-1,0,0,0,100,100,0,0,3,18,0,8,60,60,130,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
-    events = []
-    clean_hook = re.sub(r"[^\w\s.,!?'\"$%-]", "", hook_text or "").strip().upper()
-    if clean_hook:
-        events.append(f"Dialogue: 1,0:00:00.00,0:00:03.50,TopHook,,0,0,0,,{clean_hook}")
+    ass_path.parent.mkdir(parents=True, exist_ok=True)
+    ass_path.write_text(header + "\n".join(events) + "\n", encoding="utf-8")
 
-    for seg in segments or []:
-        text = getattr(seg, "text", str(seg)).strip()
-        start = getattr(seg, "start", 0.0)
-        end = getattr(seg, "end", start + 2.0)
-        if not text:
-            continue
-        start_str = format_ass_time(start)
-        end_str = format_ass_time(end)
-        clean_text = text.upper().replace("{", "").replace("}", "")
-        events.append(f"Dialogue: 0,{start_str},{end_str},ViralYellow,,0,0,0,,{clean_text}")
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(header + "\n".join(events) + "\n")
-    return output_path
+    last_end = words[-1][1] if words else 12.0
+    return max(round(last_end + 0.40, 2), 11.0)
 
 
-def build_stack_filters(channel: str = "", hook_text: str = "", ass_path: str = None, has_bgm: bool = False, has_vo: bool = False):
-    ch = channel.lower() if channel else ""
-    # Normalize any input resolution to 1920x1080 before cropping so 720p/1080p VODs never crash crop geometry.
-    norm = "[0:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,split=2[vcam][vgame]"
-    # 70% Extreme Reaction Facecam (1100px) / 30% Gameplay (820px) = 1920px total
-    if ch in ("speed", "ishowspeed"):
-        cam = "[vcam]crop=388:220:0:460,scale=1080:1100:flags=lanczos[cam]"
-        game = "[vgame]crop=1080:820:420:0,scale=1080:820:flags=lanczos[game]"
-    elif ch in ("kai", "kaicenat"):
-        cam = "[vcam]crop=480:360:1440:720,scale=1080:1100:flags=lanczos[cam]"
-        game = "[vgame]crop=1080:820:0:0,scale=1080:820:flags=lanczos[game]"
-    elif ch in ("lacy",):
-        cam = "[vcam]crop=494:278:0:0,scale=1080:1100:flags=lanczos[cam]"
-        game = "[vgame]crop=1080:820:550:0,scale=1080:820:flags=lanczos[game]"
-    else:
-        cam = "[vcam]crop=1280:720:0:0,scale=1080:1100:flags=lanczos[cam]"
-        game = "[vgame]crop=1080:820:420:0,scale=1080:820:flags=lanczos[game]"
-
-    # Alternate subtle 10% zoom punch every 2.0s to reset visual attention (matches 1.5-2.5s Shorts pacing rule)
-    punch = "[cam][game]vstack=inputs=2,crop=w='if(lt(mod(t,4),2),1080,980)':h='if(lt(mod(t,4),2),1920,1742)':x='(iw-ow)/2':y='(ih-oh)/2',scale=1080:1920:flags=bilinear,setsar=1[vpunch]"
-    chain = f"{norm};{cam};{game};{punch}"
-    curr_v = "[vpunch]"
-
-    # ASS Subtitles & Top Hook Banner Filter
-    if ass_path and os.path.exists(ass_path):
-        ass_name = pathlib.Path(ass_path).name
-        chain += f";{curr_v}ass={ass_name}[vout]"
-    else:
-        chain += f";{curr_v}null[vout]"
-
-    # Audio Mixing: duck stream slightly during 2.5s cold-open voiceover, layer -20dB BGM, normalize -14 LUFS
-    in_idx = 1
-    mix_inputs = []
-    if has_vo:
-        chain += ";[0:a]volume='if(lt(t,2.5),0.35,1.0)'[base_a]"
-        mix_inputs.append("[base_a]")
-    else:
-        mix_inputs.append("[0:a]")
-
-    if has_bgm:
-        bgm_idx = in_idx
-        in_idx += 1
-        chain += f";[{bgm_idx}:a]aloop=loop=-1:size=2e+09,volume=0.10[bgm]"
-        mix_inputs.append("[bgm]")
-
-    if has_vo:
-        vo_idx = in_idx
-        in_idx += 1
-        chain += f";[{vo_idx}:a]volume=1.35[vo]"
-        mix_inputs.append("[vo]")
-
-    if len(mix_inputs) > 1:
-        chain += f";{''.join(mix_inputs)}amix=inputs={len(mix_inputs)}:duration=first:dropout_transition=2,loudnorm=I=-14:LRA=7:tp=-1.5[aout]"
-        audio_map = ["-map", "[aout]"]
-    else:
-        audio_map = ["-map", "0:a?", "-af", "loudnorm=I=-14:LRA=7:tp=-1.5"]
-
-    filter_complex = ["-filter_complex", chain, "-map", "[vout]"] + audio_map
-    return filter_complex
-
-
-def render_vertical_clip(
-    input_video: str,
+def render_original_short(
+    topic: Dict[str, object],
     output_video: str,
-    start_sec: float,
-    duration: float,
-    channel: str = "",
-    hook_text: str = "",
-    ass_path: str = None,
-    vo_path: str = None
-) -> bool:
-    """Renders high-impact 70/30 reaction vertical video with 2s zoom punches, -20dB BGM, and optional voiceover hook."""
+    work_dir: pathlib.Path,
+) -> Tuple[bool, float]:
+    """Builds a complete 1080x1920 30fps vertical Short with scenes, motion, sync captions, and BGM."""
+    work_dir.mkdir(parents=True, exist_ok=True)
     out_p = pathlib.Path(output_video).resolve()
     out_p.parent.mkdir(parents=True, exist_ok=True)
-    working_dir = out_p.parent
 
-    # Detect viral BGM
+    mp3_path = (work_dir / "narration.mp3").resolve()
+    ass_path = (work_dir / "subs.ass").resolve()
+
+    total_dur = synthesize_tts_with_sync(
+        script_text=str(topic["script"]),
+        mp3_path=mp3_path,
+        ass_path=ass_path,
+        hook_banner=str(topic["hook"]),
+    )
+
+    slugs = list(topic.get("wiki_slugs") or ["Earth", "Moon", "Sun"])
+    while len(slugs) < 3:
+        slugs.append(slugs[-1])
+
+    scene_files = [
+        fetch_wikipedia_scene(slugs[i], work_dir / f"scene_{i}.jpg", i)
+        for i in range(3)
+    ]
+
+    seg_dur = total_dur / 3.0
+    seg_frames = max(int(round(seg_dur * 30)), 30)
+
     bgm_candidates = [
         pathlib.Path("assets/viral_bgm.mp3").resolve(),
-        pathlib.Path("output/viral_bgm.mp3").resolve(),
-        pathlib.Path(__file__).parent / "assets" / "viral_bgm.mp3"
+        pathlib.Path(__file__).parent.resolve() / "assets" / "viral_bgm.mp3",
     ]
     bgm_file = next((p for p in bgm_candidates if p.exists()), None)
-    has_bgm = bgm_file is not None
-    has_vo = bool(vo_path and os.path.exists(vo_path))
 
-    filter_complex = build_stack_filters(channel, hook_text, ass_path, has_bgm=has_bgm, has_vo=has_vo)
-
-    in_p = str(pathlib.Path(input_video).resolve())
-    cmd = [
-        "ffmpeg", "-y",
-        "-ss", f"{start_sec:.2f}",
-        "-t", f"{duration:.2f}",
-        "-i", in_p,
-    ]
-    if has_bgm:
+    # Inputs: 0..2 = 3 scene images (single frame each -> zoompan expands to seg_frames cleanly), 3 = narration MP3, optional 4 = viral BGM
+    cmd = ["ffmpeg", "-y"]
+    for sf in scene_files:
+        cmd += ["-i", sf]
+    cmd += ["-i", str(mp3_path)]
+    if bgm_file:
         cmd += ["-i", str(bgm_file)]
-    if has_vo:
-        cmd += ["-i", str(pathlib.Path(vo_path).resolve())]
 
-    cmd += filter_complex + [
+    # Smooth Ken Burns zoom-in per scene + animated red progress bar + bold ASS captions
+    v_filters = []
+    for i in range(3):
+        v_filters.append(
+            f"[{i}:v]scale=1200:2134,zoompan=z='min(zoom+0.0012,1.12)':d={seg_frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1080x1920:fps=30,setsar=1[v{i}]"
+        )
+    v_filters.append("[v0][v1][v2]concat=n=3:v=1:a=0[vcat]")
+    v_filters.append(f"color=c=0xFF204E:s=1080x14:r=30:d={total_dur:.2f}[bar]")
+    v_filters.append(f"[vcat][bar]overlay=x='-W+(t/{total_dur:.2f})*W':y=0:shortest=1[vbar]")
+    v_filters.append(f"[vbar]ass={ass_path.name}[vout]")
+
+    if bgm_file:
+        a_filter = (
+            "[4:a]aloop=loop=-1:size=2e+09,volume=0.10[bgm];"
+            "[3:a]apad,volume=1.35[vo];"
+            "[vo][bgm]amix=inputs=2:duration=first:dropout_transition=2,loudnorm=I=-14:LRA=7:tp=-1.5[aout]"
+        )
+    else:
+        a_filter = "[3:a]apad,volume=1.35,loudnorm=I=-14:LRA=7:tp=-1.5[aout]"
+
+    filter_complex = ";".join(v_filters) + ";" + a_filter
+
+    cmd += [
+        "-filter_complex", filter_complex,
+        "-map", "[vout]",
+        "-map", "[aout]",
+        "-t", f"{total_dur:.2f}",
         "-c:v", "libx264",
         "-preset", "veryfast",
         "-crf", "20",
-        "-r", "30",
         "-pix_fmt", "yuv420p",
         "-c:a", "aac",
         "-b:a", "192k",
         "-ar", "48000",
         "-movflags", "+faststart",
-        str(out_p)
+        str(out_p),
     ]
 
-    res = subprocess.run(cmd, cwd=str(working_dir), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    res = subprocess.run(cmd, cwd=str(work_dir), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     if res.returncode != 0:
-        print(f"[!] FFmpeg error: {res.stderr[-400:]}")
-        return False
-    return True
+        print(f"[!] FFmpeg error: {res.stderr[-500:]}")
+        return False, 0.0
+    return True, total_dur
 
 
 def verify_video_integrity(video_path: str) -> dict:
-    """Verifies resolution, framerate, duration, and audio stream using ffprobe."""
+    """Verifies resolution, duration, and audio/video streams using ffprobe."""
     cmd = [
         "ffprobe", "-v", "quiet",
         "-print_format", "json",
         "-show_format", "-show_streams",
-        str(video_path)
+        str(video_path),
     ]
     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if res.returncode != 0:
@@ -230,65 +273,19 @@ def verify_video_integrity(video_path: str) -> dict:
         streams = data.get("streams", [])
         v_stream = next((s for s in streams if s.get("codec_type") == "video"), None)
         a_stream = next((s for s in streams if s.get("codec_type") == "audio"), None)
-
         if not v_stream or not a_stream:
             return {"valid": False, "error": "Missing video or audio stream"}
 
         w = int(v_stream.get("width", 0))
         h = int(v_stream.get("height", 0))
         dur = float(data.get("format", {}).get("duration", 0.0))
-
-        valid = (w == 1080 and h == 1920 and 8.0 <= dur <= 65.0)
+        valid = (w == 1080 and h == 1920 and 10.0 <= dur <= 45.0)
         return {
             "valid": valid,
             "width": w,
             "height": h,
-            "duration": dur,
-            "video_codec": v_stream.get("codec_name"),
-            "audio_codec": a_stream.get("codec_name"),
-            "aspect_ratio": f"{w}x{h} (9:16)"
+            "duration": round(dur, 2),
+            "aspect_ratio": f"{w}x{h} (9:16)",
         }
     except Exception as e:
         return {"valid": False, "error": str(e)}
-
-
-def generate_viral_thumbnail(frame_jpg_path: str, hook_text: str = "", badge_text: str = "GTA 6 REACTION", out_path: str = None) -> str:
-    """Generates a high-contrast 1080x1920 viral preview thumbnail with saturation boost and neon text."""
-    try:
-        from PIL import Image, ImageEnhance, ImageDraw, ImageFont
-        if not out_path:
-            out_path = str(pathlib.Path(frame_jpg_path).with_name(f"thumb_{pathlib.Path(frame_jpg_path).name}"))
-        img = Image.open(frame_jpg_path).convert("RGB")
-        img = img.resize((1080, 1920), Image.Resampling.LANCZOS)
-        # Boost saturation and contrast for mobile AMOLED/OLED displays
-        img = ImageEnhance.Color(img).enhance(1.18)
-        img = ImageEnhance.Contrast(img).enhance(1.12)
-        draw = ImageDraw.Draw(img)
-
-        # Top viral badge
-        badge_y = 160
-        badge_box = (120, badge_y, 960, badge_y + 90)
-        draw.rounded_rectangle(badge_box, radius=18, fill=(235, 30, 30), outline=(255, 255, 255), width=3)
-        try:
-            font_badge = ImageFont.truetype("arialbd.ttf", 46)
-            font_hook = ImageFont.truetype("impact.ttf", 80)
-        except Exception:
-            font_badge = ImageFont.load_default()
-            font_hook = ImageFont.load_default()
-
-        draw.text((540, badge_y + 45), badge_text.upper(), font=font_badge, fill="white", anchor="mm")
-
-        # Main hook text overlay
-        if hook_text:
-            hook_y = 1040
-            draw.text((540, hook_y), hook_text.upper(), font=font_hook, fill="#FFE800", stroke_width=6, stroke_fill="black", anchor="mm")
-
-        img.save(out_path, quality=92)
-        return out_path
-    except Exception as e:
-        print(f"[!] Thumbnail generation fallback: {e}")
-        return frame_jpg_path
-
-
-if __name__ == "__main__":
-    print("[*] Viral Auto-Editor & Subtitler initialized.")

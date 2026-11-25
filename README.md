@@ -1,39 +1,10 @@
----
-title: Cooking Clip US
-emoji: 🎬
-colorFrom: red
-colorTo: black
-sdk: docker
-app_port: 7860
-pinned: false
----
+# Cooked Clips US — Automated Original Shorts Engine
 
-# Cooking Clip US - Autonomous Cloud Clipping Studio
+100% serverless YouTube Shorts engine designed for YPP compliance (original voiceover, kinetic captions, smooth motion visuals, zero third-party stream clipping).
 
-Autonomous 24/7 clipping engine deployed on Hugging Face Spaces.
-- **Streams**: Monitors Kai Cenat, Lacy, IShowSpeed on Twitch & YouTube.
-- **Format**: Auto-detects facecams and stacks 9:16 vertical shorts (TikTok, Reels, Shorts).
-- **Subtitles**: Auto-transcribes speech and generates `.srt` files.
-- **Port**: Serves web dashboard on port `7860`.
-
-### Telegram configuration
-Set these as environment variables (or as GitHub/hosting-platform secrets):
-
-```text
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_CHAT_ID=your_numeric_chat_id
-```
-
-Never commit Telegram credentials. For local development, copy `.env.example` to `.env`.
-
-### Deploying to Hugging Face:
-1. Create a new Space on [huggingface.co/new-space](https://huggingface.co/new-space)
-2. Select **Docker** as Space SDK.
-3. In this folder, run:
-```bash
-git init
-git remote add origin https://huggingface.co/spaces/YOUR_USERNAME/YOUR_SPACE_NAME
-git add .
-git commit -m "Deploy autonomous clipping engine"
-git push -u origin main --force
-```
+## Architecture (Zero Laptop Power, $0.00/mo)
+- **Cloudflare Worker ([worker.js](worker.js))**: 24/7 Telegram command center (`@Cookedclip_bot`) + exact daily crons (`19:00` & `23:00 UTC`).
+- **GitHub Actions ([viral_pipeline.yml](.github/workflows/viral_pipeline.yml))**: US Azure cloud renderer & publisher.
+- **Shorts Renderer ([editor.py](editor.py))**: Wikipedia HD art + Ken Burns crop motion + top hook banner + animated countdown progress bar + `Edge-TTS` WordBoundary synced captions + `-20 dB` BGM.
+- **Publisher ([youtube_publisher.py](youtube_publisher.py))**: Headless YouTube Data API v3 upload with OAuth auto-refresh.
+- **Analytics ([analytics_engine.py](analytics_engine.py))**: Live public Short discovery & view counter.

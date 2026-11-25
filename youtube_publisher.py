@@ -59,7 +59,8 @@ def upload_short(
     title: str,
     description: str = "",
     tags: list = None,
-    privacy_status: str = "public"
+    privacy_status: str = "public",
+    category_id: str = "24"
 ) -> Optional[Dict[str, Any]]:
     """Uploads a vertical 9:16 video to YouTube Shorts."""
     from googleapiclient.http import MediaFileUpload
@@ -73,14 +74,14 @@ def upload_short(
         title = f"{title[:88]} #Shorts"
 
     if not tags:
-        tags = ["Shorts", "Gaming", "GTA6", "Twitch", "StreamerMoments", "ViralClips"]
+        tags = ["Shorts", "Facts", "DidYouKnow", "ViralShorts"]
 
     body = {
         "snippet": {
             "title": title,
-            "description": description or f"{title}\n\nSubscribe for daily viral clips!\n#Shorts #Gaming #Twitch #Viral",
+            "description": description or f"{title}\n\nSubscribe for daily mind-blowing stories!\n#Shorts",
             "tags": tags,
-            "categoryId": "20",  # Gaming
+            "categoryId": category_id,
             "defaultLanguage": "en-US",
             "defaultAudioLanguage": "en-US"
         },

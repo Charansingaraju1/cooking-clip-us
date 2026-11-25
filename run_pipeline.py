@@ -1,257 +1,208 @@
 #!/usr/bin/env python3
 """
-Cooking Clip US - Master Autonomous Pipeline Runner
-Executes the end-to-end hands-free clipping flow:
-1. Ingestion & Hype Detection
-2. Dual-stacked (35/65) editing + Hook text + Karaoke subtitles + -14 LUFS
-3. Video integrity verification
-4. Headless YouTube Shorts upload
-5. Instant Telegram alert
+Cooked Clips US - 100% Original Autonomous Shorts Runner
+Generates original 14-18s high-retention Shorts (zero video clipping / zero Reused Content)
+and publishes headlessly via YouTube Data API v3 on US GitHub Actions runners.
 """
 
 import argparse
 import datetime
+import json
 import os
 import pathlib
 import sys
+import urllib.parse
+import urllib.request
+
 import editor
 import youtube_publisher
-import instagram_publisher
-import telegram_commander
+
+# Curated high-retention curiosity & story bank (~14-16s spoken length for >100% APV loops)
+TOPICS = [
+    {
+        "title": "Why Casinos Have Zero Clocks Or Windows 😱 #Shorts",
+        "hook": "WHY CASINOS HIDE CLOCKS",
+        "script": "Notice how Las Vegas casinos never have a single clock or window? They pump extra oxygen and use maze carpets so your brain completely loses track of time and keeps betting.",
+        "wiki_slugs": ["Caesars_Palace", "Las_Vegas_Strip", "Slot_machine"],
+        "tags": ["psychology", "lasvegas", "facts", "shorts", "didyouknow"],
+    },
+    {
+        "title": "The $1 Million NASA Space Pen Lie 💀 #Shorts",
+        "hook": "THE $1M SPACE PEN LIE",
+        "script": "Everyone says NASA spent millions inventing a space pen while Russia used a pencil. Actually, graphite dust ruins electronics in zero gravity, and NASA bought normal Fisher pens for three dollars.",
+        "wiki_slugs": ["Space_Pen", "Apollo_11", "International_Space_Station"],
+        "tags": ["space", "nasa", "facts", "history", "shorts"],
+    },
+    {
+        "title": "How 1 Tiny Key Mistake Sank The Titanic 🚢 #Shorts",
+        "hook": "1 TINY KEY SANK TITANIC",
+        "script": "The Titanic actually had binoculars onboard, locked inside a metal cabinet. A fired officer forgot to hand over the tiny key, leaving lookouts blind until the iceberg was right in front.",
+        "wiki_slugs": ["Titanic", "Iceberg", "RMS_Titanic"],
+        "tags": ["titanic", "history", "facts", "mystery", "shorts"],
+    },
+    {
+        "title": "Why Supermarkets Put Milk At The Very Back 🥛 #Shorts",
+        "hook": "THE SUPERMARKET TRAP",
+        "script": "Supermarkets put milk and eggs in the furthest back corner on purpose. Forcing you to walk past twenty rows of snacks increases impulse spending by nearly forty percent every trip.",
+        "wiki_slugs": ["Supermarket", "Grocery_store", "Shopping_cart"],
+        "tags": ["psychology", "money", "facts", "tricks", "shorts"],
+    },
+    {
+        "title": "The Hidden Trick Behind McDonald's Red And Yellow 🍔 #Shorts",
+        "hook": "WHY FAST FOOD IS RED",
+        "script": "McDonald's colors aren't random. Red naturally triggers urgency and hunger in your brain, while bright yellow grabs attention fast and pushes you to eat quickly and free up seats.",
+        "wiki_slugs": ["McDonald%27s", "Hamburger", "French_fries"],
+        "tags": ["business", "psychology", "facts", "shorts", "marketing"],
+    },
+    {
+        "title": "Why An Octopus Has 3 Hearts And 9 Brains 🐙 #Shorts",
+        "hook": "9 BRAINS IN 1 CREATURE",
+        "script": "An octopus literally has nine brains and three hearts. Two hearts only pump blood to its gills, and the main third heart actually stops beating whenever it swims fast.",
+        "wiki_slugs": ["Octopus", "Coral_reef", "Marine_biology"],
+        "tags": ["ocean", "science", "animals", "facts", "shorts"],
+    },
+    {
+        "title": "Why Airplane Windows Are Never Square ✈️ #Shorts",
+        "hook": "WHY PLANE WINDOWS CURVE",
+        "script": "The first jet airliners actually had square windows, and three planes broke apart mid-air. Sharp corners concentrate pressure, so engineers rounded every window to save millions of lives.",
+        "wiki_slugs": ["De_Havilland_Comet", "Commercial_aircraft", "Jet_engine"],
+        "tags": ["aviation", "engineering", "history", "facts", "shorts"],
+    },
+    {
+        "title": "How Nintendo Started In 1889 (Not Video Games) 🃏 #Shorts",
+        "hook": "NINTENDO'S SECRET ORIGIN",
+        "script": "Nintendo isn't a modern tech company. It was founded in eighteen eighty-nine making handmade playing cards in Kyoto, nearly ninety years before Mario or video games even existed.",
+        "wiki_slugs": ["Nintendo", "Hanafuda", "Super_Mario"],
+        "tags": ["gaming", "nintendo", "history", "facts", "shorts"],
+    },
+    {
+        "title": "Why You Never Hear Your Own Real Voice 🤯 #Shorts",
+        "hook": "YOU HATE YOUR OWN VOICE",
+        "script": "Your voice sounds deeper inside your head because your skull bones vibrate straight into your inner ear. What everyone else hears on recordings is actually how you sound.",
+        "wiki_slugs": ["Human_voice", "Microphone", "Acoustic_wave"],
+        "tags": ["psychology", "science", "facts", "brain", "shorts"],
+    },
+    {
+        "title": "The Island Where Nobody Is Allowed To Die ❄️ #Shorts",
+        "hook": "ILLEGAL TO DIE HERE",
+        "script": "In Longyearbyen, Norway, dying is technically banned. Permafrost keeps buried bodies completely frozen for centuries, preserving ancient viruses, so critically ill residents must fly south.",
+        "wiki_slugs": ["Longyearbyen", "Svalbard", "Permafrost"],
+        "tags": ["geography", "weirdfacts", "travel", "shorts", "didyouknow"],
+    },
+    {
+        "title": "Why Cleopatra Lived Closer To The iPhone Than Pyramids ⏳ #Shorts",
+        "hook": "TIME WILL BREAK YOUR BRAIN",
+        "script": "Cleopatra lived closer in time to the first iPhone launch than to the building of the Great Pyramid of Giza. When she ruled Egypt, the pyramids were already two thousand five hundred years old.",
+        "wiki_slugs": ["Cleopatra", "Great_Pyramid_of_Giza", "IPhone"],
+        "tags": ["history", "mindblown", "facts", "shorts", "didyouknow"],
+    },
+    {
+        "title": "Why Rolex Is Actually A Non-Profit Charity ⌚ #Shorts",
+        "hook": "ROLEX PAYS ALMOST ZERO TAX",
+        "script": "When Rolex founder Hans Wilsdorf passed away with zero heirs, he left one hundred percent of the company to a private Swiss charity foundation, keeping Rolex profits largely tax-exempt.",
+        "wiki_slugs": ["Rolex", "Switzerland", "Mechanical_watch"],
+        "tags": ["money", "business", "luxury", "facts", "shorts"],
+    },
+]
 
 
-def resolve_auto_streamer():
-    """Two high-impact daily slots: Afternoon = Lacy (19:00 UTC), Prime = Kai (23:00 UTC)."""
-    hour = datetime.datetime.utcnow().hour
-    if 17 <= hour <= 21:
-        return "lacy"
-    return "kaicenat"
-
-
-def run_autonomous_slot(channel: str = "auto", source_url: str = None, hook: str = None):
-    if not channel or channel == "auto":
-        channel = resolve_auto_streamer()
-    print(f"\n========================================================")
-    print(f"🎬 MASTER PIPELINE EXECUTING FOR: {channel.upper()}")
-    print(f"Time: {datetime.datetime.utcnow().isoformat()}Z")
-    print(f"========================================================\n")
-
-    out_dir = pathlib.Path("output")
-    out_dir.mkdir(exist_ok=True)
-    session_id = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-
-    # Step 1: Ingestion
-    raw_video = (out_dir / f"raw_{channel}_{session_id}.mp4").resolve()
-    if not source_url:
-        print(f"[*] Discovering latest high-intensity stream / VOD for {channel}...")
-        # Prioritize freshest GTA 6 stream replay / live VOD
-        source_url = f"ytsearch1:{channel} gta 6 stream"
-
-    cookies_file = None
-    cookies_env = os.environ.get("YOUTUBE_COOKIES", "").strip()
-    if cookies_env:
-        cookies_file = out_dir / "yt_cookies.txt"
-        cookies_file.write_text(cookies_env, encoding="utf-8")
-
-    yt_base_args = [
-        sys.executable, "-m", "yt_dlp",
-        "--extractor-args", "youtube:player_client=android,tv_embedded",
-        "--no-playlist",
-    ]
-    if cookies_file:
-        yt_base_args += ["--cookies", str(cookies_file)]
-
-    print(f"[*] Acquiring source stream: {source_url}...")
-    import subprocess
-    cmd_dl = yt_base_args + [
-        source_url,
-        "-o", str(raw_video),
-        "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-        "--download-sections", "*05:00-05:30",
-        "--force-keyframes-at-cuts",
-    ]
-    subprocess.run(cmd_dl)
-
-    if not raw_video.exists() or raw_video.stat().st_size < 1000:
-        print(f"[*] Targeted section failed, attempting direct download...")
-        cmd_dl_fallback = yt_base_args + [
-            source_url,
-            "-o", str(raw_video),
-            "-f", "best[ext=mp4]/best",
-            "--max-filesize", "80M",
-        ]
-        subprocess.run(cmd_dl_fallback)
-
-    if not raw_video.exists() or raw_video.stat().st_size < 1000:
-        print(f"[!] Source acquisition failed. Falling back to queued clip if available.")
-        ready_clips = list(pathlib.Path("clips/ready").glob("*.mp4"))
-        if ready_clips:
-            clip_to_upload = sorted(ready_clips, key=lambda x: os.path.getmtime(x), reverse=True)[0]
-            print(f"[*] Using queued ready clip: {clip_to_upload.name}")
-        else:
-            msg = f"❌ <b>Cloud Slot Failed ({channel.upper()})</b>\nCould not download <code>{source_url}</code> (likely YouTube datacenter IP block — pass direct URL or set <code>YOUTUBE_COOKIES</code> secret)."
-            telegram_commander.send_message(msg)
-            print("[!] No video available to process this slot.")
-            return False
-    else:
-        # Step 2: Hype Detection & Moment Selection
-        clip_rendered = out_dir / f"viral_{channel}_{session_id}.mp4"
-        ass_subtitles = out_dir / f"subs_{session_id}.ass"
-        hook_presets = [
-            "NOBODY CAUGHT THIS IN GTA 6",
-            "WAIT UNTIL SECOND 10",
-            "THIS DOESN'T LOOK LIKE A GAME",
-            "ROCKSTAR HID THIS DETAIL",
-        ]
-        import random as _rnd
-        hook_text = hook or _rnd.choice(hook_presets)
-        vo_file = editor.generate_hook_voiceover(hook_text, out_dir / f"vo_{session_id}.mp3")
-
-        # Transcribe & build top hook banner + ASS karaoke subtitles (subtitles match t=0s)
-        print("[*] Generating Whisper karaoke subtitles & top hook banner...")
-        segments = []
-        try:
-            from faster_whisper import WhisperModel
-            wmodel = WhisperModel("base", device="cpu", compute_type="int8")
-            segments, _ = wmodel.transcribe(str(raw_video), beam_size=5)
-        except Exception as e:
-            print(f"[!] Whisper transcription note: {e}")
-        editor.generate_karaoke_ass(segments, ass_subtitles, hook_text=hook_text)
-
-        # Render 70/30 vertical video clamped to 15s + 2s zoom punches + voiceover hook
-        print("[*] Rendering 70/30 1080x1920 vertical video (15s loop + 2s punches + -20dB BGM)...")
-        success = editor.render_vertical_clip(
-            input_video=str(raw_video),
-            output_video=str(clip_rendered),
-            start_sec=0.0,
-            duration=15.0,
-            channel=channel,
-            hook_text=hook_text,
-            ass_path=str(ass_subtitles) if ass_subtitles.exists() else None,
-            vo_path=vo_file,
+def send_telegram(text: str) -> None:
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "6236827164")
+    if not token:
+        return
+    try:
+        payload = json.dumps({"chat_id": int(chat_id), "text": text, "parse_mode": "HTML"}).encode("utf-8")
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=payload,
+            headers={"Content-Type": "application/json"},
         )
-        if not success:
-            telegram_commander.send_message(f"❌ <b>Cloud Render Failed ({channel.upper()})</b> — FFmpeg error on runner.")
-            print("[!] Rendering failed.")
-            return False
-        clip_to_upload = clip_rendered
+        urllib.request.urlopen(req, timeout=10)
+    except Exception as e:
+        print(f"[!] Telegram alert note: {e}")
 
-    # Step 3: Integrity Verification Protocol
-    print(f"[*] Running integrity check on {clip_to_upload}...")
-    integrity = editor.verify_video_integrity(str(clip_to_upload))
-    print(f"[*] Integrity report: {integrity}")
 
+def build_topic_from_custom_query(query: str) -> dict:
+    """Creates a clean Short script dynamically from Wikipedia for any topic requested via Telegram."""
+    slug = query.strip().replace(" ", "_")
+    url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(slug)}"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "CookedClipsUS/2.0"})
+        data = json.loads(urllib.request.urlopen(req, timeout=10).read().decode("utf-8"))
+        title_clean = data.get("title", query)[:45]
+        extract = data.get("extract", "")
+        sentences = [s.strip() for s in extract.split(".") if len(s.strip()) > 15][:2]
+        spoken = ". ".join(sentences) + "." if sentences else f"Here is the mind-blowing truth about {title_clean}."
+        return {
+            "title": f"The Truth About {title_clean} 🤯 #Shorts",
+            "hook": title_clean.upper()[:28],
+            "script": spoken[:260],
+            "wiki_slugs": [slug, slug, slug],
+            "tags": ["facts", "didyouknow", "history", "shorts", "mindblown"],
+        }
+    except Exception as e:
+        print(f"[!] Custom topic lookup fallback ({e}), using curated slot.")
+        return TOPICS[0]
+
+
+def pick_slot_topic(custom_topic: str = "") -> dict:
+    if custom_topic and custom_topic.strip():
+        return build_topic_from_custom_query(custom_topic)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    day_num = now.timetuple().tm_yday
+    slot_idx = 0 if now.hour < 21 else 1
+    idx = (day_num * 2 + slot_idx) % len(TOPICS)
+    return TOPICS[idx]
+
+
+def run_slot(custom_topic: str = "") -> bool:
+    topic = pick_slot_topic(custom_topic)
+    session_id = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
+    work_dir = pathlib.Path("output") / f"job_{session_id}"
+    out_video = pathlib.Path("output") / f"short_{session_id}.mp4"
+
+    print(f"[*] Generating 100% Original Short: {topic['title']}")
+    ok, dur = editor.render_original_short(topic, str(out_video), work_dir)
+    if not ok:
+        send_telegram("❌ <b>Cloud Render Failed</b> — FFmpeg error in GitHub Actions.")
+        return False
+
+    integrity = editor.verify_video_integrity(str(out_video))
+    print(f"[*] Integrity check: {integrity}")
     if not integrity.get("valid"):
-        print(f"[!] Video integrity check failed: {integrity.get('error')}. Aborting upload.")
+        send_telegram(f"❌ <b>Integrity Check Failed:</b> <code>{integrity.get('error')}</code>")
         return False
-    print("[✅ INTEGRITY CONFIRMED] 1080x1920, 9:16 aspect ratio, valid audio, ready for broadcast.")
 
-    # Step 4: Autonomous Dual-Platform Upload with Winning 1,000-View Formula
-    import random
-    ch = channel.lower()
-
-    if "kai" in ch:
-        # High-velocity curiosity-gap titles recommended by YouTube Studio AI — topic first, under 48 chars
-        title_templates = [
-            "The GTA 6 Detail Everyone Missed 😳 #Shorts",
-            "This Doesn't Even Look Like a Game 😭🔥 #Shorts",
-            "Rockstar Actually Did It This Time 💀 #Shorts",
-            "GTA 6 GRAPHICS JUST BROKE THE INTERNET 😭🔥 #Shorts",
-            "Rockstar didn't want this leaked... 💀 #Shorts",
-            "KAI FOUND THE STRIP CLUB IN GTA 6 😭🔥 #Shorts",
-            "GTA 6 BANK VAULT GAVE KAI $100K 😭💰 #Shorts",
-            "GTA 6 5-STAR ESCAPE BROKE KAI'S BRAIN 😱 #Shorts",
-            "Nobody noticed this detail in GTA 6... 😳 #Shorts",
-            "GTA 6 WATER GETAWAY NOBODY SAW COMING 🌊😭 #Shorts",
-            "KAI'S FIRST GTA 6 HEIST WENT COMPLETELY WRONG 💀 #Shorts",
-        ]
-        streamer_label = "Kai Cenat"
-        yt_description = (
-            "Kai Cenat hits GTA 6 Vice City and the reactions are absolutely unhinged 😭\n\n"
-            "What would YOU have done here? Rate 1-10 below 👇\n\n"
-            "Subscribe to @Cooked_Clips_US — daily Kai Cenat & GTA 6 highlights!\n\n"
-            "#gta6 #kaicenat #vicecity #twitchclips #Shorts"
-        )
-        viral_tags = ["GTA 6", "GTA VI", "Kai Cenat", "Kai Cenat GTA 6", "Grand Theft Auto VI",
-                      "Vice City", "GTA 6 gameplay", "Kai Cenat twitch", "gaming shorts",
-                      "viral shorts", "cooked clips", "twitch highlights", "amp kai", "kaicenat clips",
-                      "GTA 6 reaction", "GTA 6 funny moments"]
-        viral_hashtags = "#kaicenat #kaicenatclips #gta6 #grandtheftauto6 #vicecity #twitchmoments #gamingreels #fyp #cookedclips"
-    elif "lacy" in ch:
-        title_templates = [
-            "This Doesn't Even Look Like a Game 😭🔥 #Shorts",
-            "The GTA 6 Detail Everyone Missed 😳 #Shorts",
-            "Rockstar Actually Did It This Time 💀 #Shorts",
-            "GTA 6 GRAPHICS ARE ACTUALLY INSANE 😭🔥 #Shorts",
-            "GTA 6 GRAPHICS JUST BROKE THE INTERNET 😭🔥 #Shorts",
-            "Nobody noticed this detail in GTA 6... 😳 #Shorts",
-            "LACY CANNOT BELIEVE THIS GTA 6 DETAIL 😱🔥 #Shorts",
-            "GTA 6 WATER PHYSICS SENT LACY INTO A SPIRAL 🌊😱 #Shorts",
-            "Rockstar didn't want this leaked... 💀 #Shorts",
-            "LACY'S GTA 6 GETAWAY IS THE FUNNIEST THING 😭 #Shorts",
-        ]
-        streamer_label = "Lacy"
-        yt_description = (
-            "Lacy flies through Vice City in GTA 6 and completely loses it 😭🔥\n\n"
-            "Was this the right move? Rate 1-10 below 👇\n\n"
-            "Subscribe to @Cooked_Clips_US — daily Lacy & GTA 6 highlights!\n\n"
-            "#gta6 #lacy #fazelacy #vicecity #twitchclips #Shorts"
-        )
-        viral_tags = ["GTA 6", "GTA VI", "Lacy", "Lacy GTA 6", "Grand Theft Auto VI",
-                      "Vice City", "Lacy twitch", "GTA 6 gameplay", "faze lacy",
-                      "gaming shorts", "viral shorts", "cooked clips", "twitch highlights",
-                      "GTA 6 reaction", "GTA 6 funny moments"]
-        viral_hashtags = "#lacy #fazelacy #lacystream #gta6 #grandtheftauto6 #vicecity #gamingreels #fyp #cookedclips"
-    else:
-        title_templates = [f"{channel.upper()} GTA 6 NOBODY SAW THIS COMING 😭🔥 #Shorts"]
-        streamer_label = channel
-        yt_description = "Wildest GTA 6 highlight you'll see today 😭 Subscribe to @Cooked_Clips_US!\n\n#gta6 #Shorts"
-        viral_tags = ["GTA 6", "Gaming", "Twitch", "Streamer Moments", "Shorts", "Viral Clips", "GTA 6 funny"]
-        viral_hashtags = "#gaming #gta6 #grandtheftauto6 #viral #fyp #cookedclips"
-
-    if hook and len(hook) > 10:
-        title = f"{hook} ({streamer_label} Reaction) #Shorts"
-    else:
-        title = random.choice(title_templates)
-
-    ig_caption = f"{title}\n.\n.\nDrop your rating 1-10 below! 👇\n.\n.\n{viral_hashtags}"
-
-    print(f"[*] Publishing to YouTube Shorts with viral tags...")
-    yt_result = youtube_publisher.upload_short(
-        video_path=str(clip_to_upload),
-        title=title,
-        description=yt_description,
-        tags=viral_tags,
-        privacy_status="public"
+    desc = (
+        f"{topic['title']}\n\n"
+        "Did you already know this, or were you surprised? Comment below 👇\n\n"
+        "Subscribe for 2 mind-blowing stories every day!\n#Shorts #Facts #DidYouKnow"
     )
-
-    print(f"[*] Publishing to Instagram Reels with viral hashtags...")
-    ig_result = instagram_publisher.upload_reel(str(clip_to_upload), ig_caption)
-
-    # Step 5: Telegram Commander Alert
-    if (yt_result and yt_result.get("url")) or (ig_result and ig_result.get("url")):
-        yt_url = yt_result.get("url", "N/A") if yt_result else "N/A"
-        ig_url = ig_result.get("url", "N/A") if ig_result else "N/A"
-        telegram_commander.send_telegram_alert(
-            streamer=channel,
-            title=title,
-            yt_url=yt_url,
-            ig_url=ig_url
+    yt_res = youtube_publisher.upload_short(
+        video_path=str(out_video),
+        title=topic["title"],
+        description=desc,
+        tags=topic["tags"],
+        privacy_status="public",
+        category_id="27",  # Education
+    )
+    if yt_res and yt_res.get("url"):
+        send_telegram(
+            f"🚀 <b>NEW ORIGINAL SHORT PUBLISHED</b>\n\n"
+            f"🎬 <b>Title:</b> {topic['title']}\n"
+            f"⏱️ <b>Length:</b> {integrity['duration']}s (9:16 HD)\n"
+            f"▶️ <b>YouTube:</b> {yt_res['url']}"
         )
-        print(f"\n[🚀 SLOT COMPLETED SUCCESSFULLY] YouTube: {yt_url} | Instagram: {ig_url}")
         return True
-    else:
-        print("[!] Video rendered and ready locally.")
-        return False
+
+    send_telegram("❌ <b>YouTube Upload Failed</b> — Check <code>YOUTUBE_TOKEN_JSON</code> secret.")
+    return False
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Cooking Clip US Autonomous Pipeline")
-    parser.add_argument("--channel", default="auto", help="Target streamer channel (kaicenat, lacy, ishowspeed, or auto)")
-    parser.add_argument("--url", default=None, help="Direct video URL")
-    parser.add_argument("--hook", default=None, help="Hook text overlay")
+    parser = argparse.ArgumentParser(description="Cooked Clips US Original Shorts Runner")
+    parser.add_argument("--topic", default="", help="Optional custom Wikipedia/fact topic")
     args = parser.parse_args()
-
-    ok = run_autonomous_slot(channel=args.channel, source_url=args.url, hook=args.hook)
-    if not ok:
+    if not run_slot(args.topic):
         sys.exit(1)
