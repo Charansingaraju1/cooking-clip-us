@@ -5,6 +5,7 @@ data/
 rec/
 clips/
 output/
+temp/
 *.log
 .DS_Store
 .env
@@ -15,4 +16,5 @@ output/
 .meta_creds.json
 client_secret.json
 token.json
+ig_session.json
 *.bak

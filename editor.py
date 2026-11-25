@@ -66,21 +66,23 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 def build_stack_filters(channel: str = "", hook_text: str = "", ass_path: str = None, has_bgm: bool = False):
     ch = channel.lower() if channel else ""
+    # Normalize any input resolution to 1920x1080 before cropping so 720p/1080p VODs never crash crop geometry.
+    norm = "[0:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,split=2[vcam][vgame]"
     # 70% Extreme Reaction Facecam (1100px) / 30% Gameplay (820px) = 1920px total
     if ch in ("speed", "ishowspeed"):
-        cam = "[0:v]crop=388:220:0:460,scale=1080:1100:flags=lanczos[cam]"
-        game = "[0:v]crop=1080:820:420:0,scale=1080:820:flags=lanczos[game]"
+        cam = "[vcam]crop=388:220:0:460,scale=1080:1100:flags=lanczos[cam]"
+        game = "[vgame]crop=1080:820:420:0,scale=1080:820:flags=lanczos[game]"
     elif ch in ("kai", "kaicenat"):
-        cam = "[0:v]crop=480:360:1440:720,scale=1080:1100:flags=lanczos[cam]"
-        game = "[0:v]crop=1080:820:0:0,scale=1080:820:flags=lanczos[game]"
+        cam = "[vcam]crop=480:360:1440:720,scale=1080:1100:flags=lanczos[cam]"
+        game = "[vgame]crop=1080:820:0:0,scale=1080:820:flags=lanczos[game]"
     elif ch in ("lacy",):
-        cam = "[0:v]crop=494:278:0:0,scale=1080:1100:flags=lanczos[cam]"
-        game = "[0:v]crop=1080:820:550:0,scale=1080:820:flags=lanczos[game]"
+        cam = "[vcam]crop=494:278:0:0,scale=1080:1100:flags=lanczos[cam]"
+        game = "[vgame]crop=1080:820:550:0,scale=1080:820:flags=lanczos[game]"
     else:
-        cam = "[0:v]crop=1280:720:0:0,scale=1080:1100:flags=lanczos[cam]"
-        game = "[0:v]crop=1080:820:420:0,scale=1080:820:flags=lanczos[game]"
+        cam = "[vcam]crop=1280:720:0:0,scale=1080:1100:flags=lanczos[cam]"
+        game = "[vgame]crop=1080:820:420:0,scale=1080:820:flags=lanczos[game]"
 
-    chain = f"{cam};{game};[cam][game]vstack=inputs=2[vstacked]"
+    chain = f"{norm};{cam};{game};[cam][game]vstack=inputs=2[vstacked]"
     curr_v = "[vstacked]"
 
     # ASS Subtitles Filter
@@ -126,11 +128,12 @@ def render_vertical_clip(
 
     filter_complex = build_stack_filters(channel, hook_text, ass_path, has_bgm=has_bgm)
 
+    in_p = str(pathlib.Path(input_video).resolve())
     cmd = [
         "ffmpeg", "-y",
         "-ss", f"{start_sec:.2f}",
         "-t", f"{duration:.2f}",
-        "-i", str(input_video),
+        "-i", in_p,
     ]
     if has_bgm:
         cmd += ["-i", str(bgm_file)]
@@ -149,23 +152,6 @@ def render_vertical_clip(
     ]
 
     res = subprocess.run(cmd, cwd=str(working_dir), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
-    if res.returncode != 0:
-        print(f"[!] FFmpeg error: {res.stderr[-400:]}")
-        return False
-    return True + [
-        "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "22",
-        "-r", "30",
-        "-pix_fmt", "yuv420p",
-        "-c:a", "aac",
-        "-b:a", "128k",
-        "-ar", "48000",
-        "-movflags", "+faststart",
-        str(output_video)
-    ]
-
-    res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     if res.returncode != 0:
         print(f"[!] FFmpeg error: {res.stderr[-400:]}")
         return False

@@ -87,6 +87,20 @@ def send_message(text: str, chat_id: Optional[int] = None, parse_mode: str = "HT
         return False
 
 
+def send_telegram_alert(streamer: str, title: str, yt_url: str = "N/A", ig_url: str = "N/A") -> bool:
+    """Sends a formatted publish confirmation alert after a cloud upload finishes."""
+    key = "LACY" if "LACY" in streamer.upper() else "KAI"
+    portal = REWARD_CAMPAIGNS.get(key, "")
+    msg = (
+        f"🚀 <b>NEW SHORT PUBLISHED ({streamer.upper()})</b>\n\n"
+        f"🎬 <b>Title:</b> {title}\n"
+        f"▶️ <b>YouTube:</b> {yt_url}\n"
+        f"📸 <b>Instagram:</b> {ig_url}\n\n"
+        f"🏆 <b>Rewards Portal:</b> {portal}"
+    )
+    return send_message(msg)
+
+
 def send_voice_audio(chat_id: int, spoken_text: str, caption: str = "🎙️ <b>Cooked Clips Voice Assistant</b>"):
     voice_file = str(TEMP_DIR / "bot_voice_reply.ogg")
 

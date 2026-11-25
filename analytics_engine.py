@@ -16,6 +16,9 @@ BASE_DIR = pathlib.Path(__file__).parent.resolve()
 
 TRACKED_VIDEOS = [
     {"id": "aOQsf2H7flw", "streamer": "Lacy", "title": "GTA 6 GRAPHICS ARE ACTUALLY INSANE", "strategy": "US Server / Reaction Hook"},
+    {"id": "89TyL4qEXpc", "streamer": "Lacy", "title": "FIRST HEIST GETAWAY IN GTA 6 IS SO INTENSE", "strategy": "Lacy Early Test"},
+    {"id": "YGLt0Ddk1u4", "streamer": "Lacy", "title": "Lacy HYPED After Beating GTA 6 Mission", "strategy": "Lacy Mission"},
+    {"id": "xMQSx45G8pY", "streamer": "Kai Cenat", "title": "Kai Cenat PRAYING Before GTA 6 Starts", "strategy": "Kai Intro"},
     {"id": "lxBks72Ku4s", "streamer": "Kai Cenat", "title": "KAI FOUND THE STRIP CLUB IN GTA 6", "strategy": "US Server / 70-30 Split"},
     {"id": "7D19dt_s7wc", "streamer": "Kai Cenat", "title": "KAI CENAT GTA 6 VAULT ROBBERY", "strategy": "US Server / High Stakes"},
     {"id": "w4ICvZ7pwbU", "streamer": "Kai Cenat", "title": "KAI CENAT FIRST GTA 6 COMPOUND SHOOTOUT", "strategy": "Early Seed"},
@@ -36,7 +39,7 @@ def fetch_video_stats(video_id: str) -> Dict[str, Any]:
 
     # 1. Fetch oEmbed metadata
     try:
-        oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=f{video_id}&format=json"
+        oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
         req = urllib.request.Request(oembed_url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode("utf-8"))

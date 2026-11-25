@@ -41,34 +41,44 @@ def run_autonomous_slot(channel: str = "auto", source_url: str = None, hook: str
     session_id = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
 
     # Step 1: Ingestion
-    raw_video = out_dir / f"raw_{channel}_{session_id}.mp4"
+    raw_video = (out_dir / f"raw_{channel}_{session_id}.mp4").resolve()
     if not source_url:
         print(f"[*] Discovering latest high-intensity stream / VOD for {channel}...")
         # Prioritize freshest GTA 6 stream replay / live VOD
         source_url = f"ytsearch1:{channel} gta 6 stream"
 
+    cookies_file = None
+    cookies_env = os.environ.get("YOUTUBE_COOKIES", "").strip()
+    if cookies_env:
+        cookies_file = out_dir / "yt_cookies.txt"
+        cookies_file.write_text(cookies_env, encoding="utf-8")
+
+    yt_base_args = [
+        sys.executable, "-m", "yt_dlp",
+        "--extractor-args", "youtube:player_client=android,tv_embedded",
+        "--no-playlist",
+    ]
+    if cookies_file:
+        yt_base_args += ["--cookies", str(cookies_file)]
+
     print(f"[*] Acquiring source stream: {source_url}...")
     import subprocess
-    cmd_dl = [
-        sys.executable, "-m", "yt_dlp",
+    cmd_dl = yt_base_args + [
         source_url,
         "-o", str(raw_video),
         "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-        "--download-sections", "*05:00-05:40",
+        "--download-sections", "*05:00-05:30",
         "--force-keyframes-at-cuts",
-        "--no-playlist"
     ]
-    res_dl = subprocess.run(cmd_dl)
+    subprocess.run(cmd_dl)
 
     if not raw_video.exists() or raw_video.stat().st_size < 1000:
         print(f"[*] Targeted section failed, attempting direct download...")
-        cmd_dl_fallback = [
-            sys.executable, "-m", "yt_dlp",
+        cmd_dl_fallback = yt_base_args + [
             source_url,
             "-o", str(raw_video),
             "-f", "best[ext=mp4]/best",
             "--max-filesize", "80M",
-            "--no-playlist"
         ]
         subprocess.run(cmd_dl_fallback)
 
@@ -79,6 +89,8 @@ def run_autonomous_slot(channel: str = "auto", source_url: str = None, hook: str
             clip_to_upload = sorted(ready_clips, key=lambda x: os.path.getmtime(x), reverse=True)[0]
             print(f"[*] Using queued ready clip: {clip_to_upload.name}")
         else:
+            msg = f"❌ <b>Cloud Slot Failed ({channel.upper()})</b>\nCould not download <code>{source_url}</code> (likely YouTube datacenter IP block — pass direct URL or set <code>YOUTUBE_COOKIES</code> secret)."
+            telegram_commander.send_message(msg)
             print("[!] No video available to process this slot.")
             return False
     else:
@@ -97,18 +109,19 @@ def run_autonomous_slot(channel: str = "auto", source_url: str = None, hook: str
         except Exception as e:
             print(f"[!] Whisper transcription note: {e}")
 
-        # Render dual-stacked 1080x1920 (35% top, 65% bottom) with -14 LUFS
-        print("[*] Rendering dual-stacked 1080x1920 vertical video with -14 LUFS...")
+        # Render 70/30 vertical video clamped to 15s for >100% APV replay loops
+        print("[*] Rendering 70/30 1080x1920 vertical video (15s loop + -20dB BGM)...")
         success = editor.render_vertical_clip(
             input_video=str(raw_video),
             output_video=str(clip_rendered),
-            start_sec=10.0,
-            duration=35.0,
+            start_sec=5.0,
+            duration=15.0,
             channel=channel,
             hook_text=hook_text,
             ass_path=str(ass_subtitles) if ass_subtitles.exists() else None
         )
         if not success:
+            telegram_commander.send_message(f"❌ <b>Cloud Render Failed ({channel.upper()})</b> — FFmpeg error on runner.")
             print("[!] Rendering failed.")
             return False
         clip_to_upload = clip_rendered
@@ -229,4 +242,6 @@ if __name__ == "__main__":
     parser.add_argument("--hook", default=None, help="Hook text overlay")
     args = parser.parse_args()
 
-    run_autonomous_slot(channel=args.channel, source_url=args.url, hook=args.hook)
+    ok = run_autonomous_slot(channel=args.channel, source_url=args.url, hook=args.hook)
+    if not ok:
+        sys.exit(1)
