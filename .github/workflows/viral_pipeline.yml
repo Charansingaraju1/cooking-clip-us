@@ -1,15 +1,10 @@
 name: Autonomous Original Shorts Publisher
 
 on:
-  schedule:
-    # Slot 1: US Afternoon Peak (2:00 PM EST / 19:00 UTC)
-    - cron: '0 19 * * *'
-    # Slot 2: US Evening Prime Time (6:00 PM EST / 23:00 UTC)
-    - cron: '0 23 * * *'
   workflow_dispatch:
     inputs:
       topic:
-        description: 'Optional custom topic (blank = auto rotating high-retention story)'
+        description: 'Optional custom topic (blank = auto rotating story)'
         required: false
         default: ''
   push:
